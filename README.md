@@ -46,18 +46,30 @@ npm install && npm run dev    # → http://localhost:3000
 
 ## How it works
 
-A Next.js process pulls the [Open-Meteo](https://open-meteo.com) hourly forecast
-(`best_match`, which blends in MET Nordic 1 km over Scandinavia) for each
-airfield's exact coordinates, and a pure decision engine
-([lib/decision.ts](lib/decision.ts)) scores each hour on the worst of wind, gust,
-rain, thunder and cloud, then rolls the window up into a verdict and best window.
+Everything runs server-side, in three steps:
 
-It's **convective-aware** — rain is judged on probability, WMO weather codes and
-CAPE, not just point rainfall, so scattered showers and thunder aren't missed. A
-shower *chance* only makes a day **CONSIDER** (you jump the holes between cells);
-**NO-GO** is reserved for real stoppers — steady rain, thunder (⚡), over-limit
-wind, or a solid cloud deck. Thresholds live in `LIMITS` in
-[lib/decision.ts](lib/decision.ts) and are still being calibrated against real
-jump days.
+1. **Fetch.** Pull the hourly forecast from [Open-Meteo](https://open-meteo.com)
+   for each airfield's exact coordinates, using the 1 km MET Nordic model where
+   available (the most accurate for Scandinavia).
+2. **Score each hour.** Every hour in the 09:00–21:00 window is rated
+   go / consider / no-go on the *worst* of five factors: wind, gusts, rain,
+   thunder, and cloud.
+3. **Roll up the day.** Those hours become one verdict per dropzone, plus the
+   best window to jump.
+
+| Verdict | What it means |
+|---|---|
+| 🟢 **GO** | A solid block of clear hours in the window |
+| 🟡 **CONSIDER** | Jumpable but unsettled: showers possible, go early or watch the radar |
+| 🔴 **NO-GO** | A real stopper all day |
+
+The hard part is summer storms. A plain forecast can read "0 mm" at the field
+while a cell dumps rain a few kilometres away, so the engine also weighs rain
+*probability* and atmospheric instability (CAPE), not just millimetres. It also
+matches how jumpers actually behave: a shower *chance* only drops a day to
+CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
+solid cloud deck are the real NO-GO. All the thresholds live in `LIMITS`
+([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
+days.
 
 <sub>Data © <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0). Not an operational authority — check the radar before driving.</sub>
