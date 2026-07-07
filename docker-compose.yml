@@ -3,8 +3,8 @@ services:
     image: ghcr.io/d-ismlv/letsjump:latest
     ports:
       - "32325:32325"
-    # Optional: pin the jumping window's timezone (defaults to Europe/Stockholm
-    # in code; TZ only affects server logs here).
-    # environment:
-    #   - TZ=Europe/Stockholm
+    environment:
+      - TZ=Europe/Stockholm
+      # PORT=32325            # change the in-container port (also update ports:)
+    # letsjump is stateless — no volumes and no secrets, unlike danke.
     restart: unless-stopped

@@ -12,6 +12,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 
+<img src="docs/screenshot.png" alt="Let's jump — forecast-based GO / CONSIDER / NO-GO for FK Aros and Skydive Stockholm" width="820" />
+
 </div>
 
 "Should I drive ~70 min to the dropzone?" — one page that turns the forecast into

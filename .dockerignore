@@ -10,3 +10,6 @@ docker-compose.yml
 .claude
 .vscode
 *.md
+docs
+AGENTS.md
+CLAUDE.md
