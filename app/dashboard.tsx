@@ -182,7 +182,11 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
         </thead>
         <tbody>
           {hours.map((h) => {
-            const Sky = h.thunder ? BoltIcon : skyIconFor(h.cloudTotal, h.precipMmH);
+            // Jump-relevant cloud = the low/mid deck the plane must climb through.
+            // Use it for both icon and %, so they match the verdict dot (total
+            // cloud can disagree wildly with the low/mid layers in the data).
+            const deck = Math.max(h.cloudLow, h.cloudMid);
+            const Sky = h.thunder ? BoltIcon : skyIconFor(deck, h.precipMmH);
             return (
               <tr
                 key={h.time}
@@ -196,7 +200,7 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                   <div className="mx-auto flex w-16 items-center gap-2">
                     <Sky className="h-5 w-5 shrink-0" />
                     <span className="text-xs tabular-nums text-zinc-400">
-                      {h.cloudTotal}%
+                      {deck}%
                     </span>
                   </div>
                 </td>
