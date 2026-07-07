@@ -4,7 +4,7 @@ import type {
   DropzoneForecast,
   ForecastHour,
 } from "./types";
-import { JUMP_FROM, JUMP_TO, rateDay, rateHour } from "./decision";
+import { JUMP_FROM, rateDay, rateHour } from "./decision";
 
 const HOURLY = [
   "wind_speed_10m",
@@ -55,6 +55,13 @@ export async function fetchDropzoneForecast(
     return { dz, days: [], error: err instanceof Error ? err.message : String(err) };
   }
 
+  // Last operating hour for this DZ on a given local date (weekends differ).
+  const closeFor = (date: string) => {
+    const day = new Date(`${date}T12:00:00Z`).getUTCDay();
+    const weekend = day === 0 || day === 6;
+    return weekend ? dz.closeWeekend : dz.closeWeekday;
+  };
+
   const h = data.hourly;
   // Group jumping-window hours by local date.
   const byDate = new Map<string, ForecastHour[]>();
@@ -62,7 +69,7 @@ export async function fetchDropzoneForecast(
     const iso = h.time[i]; // "2026-07-06T09:00" (already Europe/Stockholm)
     const date = iso.slice(0, 10);
     const hour = Number(iso.slice(11, 13));
-    if (hour < JUMP_FROM || hour > JUMP_TO) continue;
+    if (hour < JUMP_FROM || hour > closeFor(date)) continue;
 
     const sample = {
       windMs: h.wind_speed_10m[i] ?? 0,
@@ -117,7 +124,11 @@ export async function fetchDropzoneForecast(
         : diff === 1
           ? "Tomorrow"
           : WEEKDAY[new Date(`${date}T12:00:00Z`).getUTCDay()];
-    return rateDay(byDate.get(date) ?? [], { dateISO: date, label });
+    return rateDay(byDate.get(date) ?? [], {
+      dateISO: date,
+      label,
+      close: closeFor(date),
+    });
   });
 
   return { dz, days, error: null };

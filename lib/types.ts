@@ -8,6 +8,8 @@ export type Dropzone = {
   lat: number;
   lon: number;
   jumpUrl: string; // where to check the jump table / manifest
+  closeWeekday: number; // last operating hour, Mon–Fri (local)
+  closeWeekend: number; // last operating hour, Sat/Sun (local)
 };
 
 // Per-hour forecast within the jumping window.
@@ -37,6 +39,7 @@ export type Limiter = "wind" | "gust" | "rain" | "thunder" | "cloud" | null;
 export type DayForecast = {
   dateISO: string; // yyyy-mm-dd (local)
   label: string; // "Today" | "Tomorrow" | weekday
+  close: number; // last operating hour this date (local)
   hours: ForecastHour[]; // jumping-window hours only
   verdict: Verdict;
   summary: string; // one-line human reason

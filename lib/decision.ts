@@ -9,9 +9,10 @@ import type {
 // Jumping window (local time). DZs don't run loads outside daylight ops.
 export const JUMP_FROM = 9;
 export const JUMP_TO = 21; // inclusive of the 21:00 row
-// If the only jumpable stretch starts this late (evening-only), the day is a
-// coin-flip on turnout — people leave or the day gets called for low interest.
-export const LATE_START = JUMP_TO - 3; // 18:00
+// Hours before a DZ's close that count as "evening only". If the sole jumpable
+// stretch starts within this margin of closing, turnout is a coin-flip — people
+// leave or the day gets called for low interest.
+export const LATE_MARGIN = 3;
 
 // Thresholds for a licensed (B/C/D) sport jumper. Tune here.
 // Wind/gust in m/s, rain in mm/h, cloud in % cover.
@@ -143,7 +144,7 @@ const LIMITER_LABEL: Record<Exclude<Limiter, null>, string> = {
 // Roll up a day's jumping-window hours into one verdict + summary + best window.
 export function rateDay(
   hours: ForecastHour[],
-  meta: { dateISO: string; label: string },
+  meta: { dateISO: string; label: string; close: number },
 ): DayForecast {
   if (!hours.length) {
     return {
@@ -173,10 +174,12 @@ export function rateDay(
   // green best-window chip so the "go early" signal isn't lost.
   if (unsettled && verdict === "GO") verdict = "CONSIDER";
 
-  // Evening-only clearance: if nothing is jumpable until late, don't headline GO
-  // — by then people have left or the day gets called for low interest.
+  // Evening-only clearance: if nothing is jumpable until the last few hours
+  // before this DZ's close, don't headline GO — by then people have left or the
+  // day gets called for low interest.
+  const lateStart = meta.close - LATE_MARGIN;
   const firstGo = hours.find((h) => h.status === "go");
-  const eveningOnly = firstGo != null && firstGo.hour >= LATE_START;
+  const eveningOnly = firstGo != null && firstGo.hour >= lateStart;
   if (eveningOnly && verdict === "GO") verdict = "CONSIDER";
 
   // Best window = longest clean-air run, falling back to the longest non-nogo run.

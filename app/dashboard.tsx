@@ -8,7 +8,7 @@ import type {
   HourStatus,
   Verdict,
 } from "@/lib/types";
-import { JUMP_FROM, JUMP_TO, LIMITS } from "@/lib/decision";
+import { JUMP_FROM, LIMITS } from "@/lib/decision";
 import { BoltIcon, DropletIcon, WindArrow, skyIconFor } from "./icons";
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -143,7 +143,7 @@ function DzCard({
                 className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                 title={d.summary}
               >
-                {bestChanceLabel(d.bestWindow)}
+                {bestChanceLabel(d.bestWindow, d.close)}
               </span>
             ) : null}
           </div>
@@ -266,8 +266,8 @@ function RainCell({ h }: { h: ForecastHour }) {
 const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 // "All day" when the good run covers the whole jumping window, else the range.
-function bestChanceLabel(w: { from: number; to: number }): string {
-  if (w.from <= JUMP_FROM && w.to >= JUMP_TO) return "All day";
+function bestChanceLabel(w: { from: number; to: number }, close: number): string {
+  if (w.from <= JUMP_FROM && w.to >= close) return "All day";
   return `${pad(w.from)}–${pad(w.to)}`;
 }
 
@@ -313,8 +313,9 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
 export function Legend() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
-      Window {pad(JUMP_FROM)}–{pad(JUMP_TO)} · forecast only (check the jump
-      table + radar for actual ops). NO-GO needs wind &gt; {LIMITS.windMax} m/s,
+      From {pad(JUMP_FROM)} to each DZ&apos;s close (Aros 21:00; Gryttjom 20:00,
+      18:00 weekends) · forecast only (check the jump table + radar for actual
+      ops). NO-GO needs wind &gt; {LIMITS.windMax} m/s,
       gust &gt; {LIMITS.gustMax} m/s, steady rain &gt; {LIMITS.rainMax} mm/h,
       thunder (⚡), or solid low/mid cloud. A shower chance only dials it down to
       CONSIDER — scattered cells leave holes to jump.
