@@ -317,7 +317,7 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
 export function Legend() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
-      From {pad(JUMP_FROM)} to each DZ&apos;s close (Aros 21:00; Gryttjom 20:00,
+      From {pad(JUMP_FROM)} to each DZ&apos;s close (Aros 20:00; Gryttjom 20:00,
       18:00 weekends) · forecast only (check the jump table + radar for actual
       ops). NO-GO needs wind &gt; {LIMITS.windMax} m/s,
       gust &gt; {LIMITS.gustMax} m/s, steady rain &gt; {LIMITS.rainMax} mm/h,

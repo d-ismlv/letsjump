@@ -11,8 +11,8 @@ export const DROPZONES: Dropzone[] = [
     lat: 59.577,
     lon: 16.5,
     jumpUrl: "https://skyview.fkaros.se/",
-    closeWeekday: 21,
-    closeWeekend: 21,
+    closeWeekday: 20, // last lift ~20:30
+    closeWeekend: 20,
   },
   {
     id: "gryttjom",
