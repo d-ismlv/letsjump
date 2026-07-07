@@ -1,0 +1,10 @@
+services:
+  letsjump:
+    image: ghcr.io/d-ismlv/letsjump:latest
+    ports:
+      - "32325:32325"
+    # Optional: pin the jumping window's timezone (defaults to Europe/Stockholm
+    # in code; TZ only affects server logs here).
+    # environment:
+    #   - TZ=Europe/Stockholm
+    restart: unless-stopped
