@@ -44,6 +44,21 @@ const STATUS_DOT: Record<HourStatus, string> = {
   nogo: "bg-rose-500",
 };
 
+// Short reason per limiting factor, shown on hover of the status dot.
+const LIMITER_TEXT: Record<NonNullable<ForecastHour["limiter"]>, string> = {
+  wind: "wind over limit",
+  gust: "gusts over limit",
+  rain: "rain",
+  thunder: "thunderstorm",
+  cloud: "solid cloud deck",
+};
+
+function dotTitle(h: ForecastHour): string {
+  const verdict = { go: "GO", consider: "CONSIDER", nogo: "NO-GO" }[h.status];
+  if (!h.limiter) return `${verdict}: within limits`;
+  return `${verdict}: ${LIMITER_TEXT[h.limiter]}`;
+}
+
 const ROW_TINT: Record<HourStatus, string> = {
   go: "",
   consider: "bg-amber-50/60 dark:bg-amber-500/[0.06]",
@@ -206,7 +221,7 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                 <td className="py-2 pr-3 text-center">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_DOT[h.status]}`}
-                    title={h.status}
+                    title={dotTitle(h)}
                   />
                 </td>
               </tr>

@@ -9,6 +9,9 @@ import type {
 // Jumping window (local time). DZs don't run loads outside daylight ops.
 export const JUMP_FROM = 9;
 export const JUMP_TO = 21; // inclusive of the 21:00 row
+// If the only jumpable stretch starts this late (evening-only), the day is a
+// coin-flip on turnout — people leave or the day gets called for low interest.
+export const LATE_START = JUMP_TO - 3; // 18:00
 
 // Thresholds for a licensed (B/C/D) sport jumper. Tune here.
 // Wind/gust in m/s, rain in mm/h, cloud in % cover.
@@ -170,6 +173,12 @@ export function rateDay(
   // green best-window chip so the "go early" signal isn't lost.
   if (unsettled && verdict === "GO") verdict = "CONSIDER";
 
+  // Evening-only clearance: if nothing is jumpable until late, don't headline GO
+  // — by then people have left or the day gets called for low interest.
+  const firstGo = hours.find((h) => h.status === "go");
+  const eveningOnly = firstGo != null && firstGo.hour >= LATE_START;
+  if (eveningOnly && verdict === "GO") verdict = "CONSIDER";
+
   // Best window = longest clean-air run, falling back to the longest non-nogo run.
   const runForWindow = bestGo.len >= 2 ? bestGo : bestOk.len >= 2 ? bestOk : null;
   const bestWindow = runForWindow
@@ -180,7 +189,7 @@ export function rateDay(
     ...meta,
     hours,
     verdict,
-    summary: summarise(hours, verdict, bestWindow, stormy),
+    summary: summarise(hours, verdict, bestWindow, stormy, eveningOnly),
     bestWindow,
   };
 }
@@ -190,6 +199,7 @@ function summarise(
   verdict: Verdict,
   bestWindow: { from: number; to: number } | null,
   stormy: boolean,
+  eveningOnly: boolean,
 ): string {
   const window = bestWindow
     ? `${pad(bestWindow.from)}–${pad(bestWindow.to)}`
@@ -223,6 +233,9 @@ function summarise(
       const w = window ? `Best chance ${window}. ` : "";
       const note = stormy ? stormNote : wetNote;
       return `${w}${note} Unsettled — check the radar before driving.`.trim();
+    }
+    if (eveningOnly && window) {
+      return `Only clears late (${window}). Turnout iffy — the day may get called.`;
     }
     const blocker = dominantLimiter(hours.filter((h) => h.status !== "go"));
     const w = window ? `Marginal window ${window}. ` : "";
