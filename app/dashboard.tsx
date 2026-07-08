@@ -184,9 +184,9 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
           <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
             <th className="py-2 pl-3 text-left font-medium">Time</th>
             <th className="py-2 pl-4 text-left font-medium">Sky</th>
-            <th className="py-2 text-right font-medium">Wind</th>
-            <th className="py-2 text-right font-medium">Gust</th>
-            <th className="py-2 text-right font-medium">Rain</th>
+            <th className="py-2 text-center font-medium">Wind</th>
+            <th className="py-2 text-center font-medium">Gust</th>
+            <th className="py-2 text-center font-medium">Rain</th>
             <th className="py-2 pr-3 text-center font-medium">Go</th>
           </tr>
         </thead>
@@ -214,8 +214,8 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                     </span>
                   </div>
                 </td>
-                <td className="py-2 text-right tabular-nums">
-                  <span className="inline-flex items-center justify-end gap-1">
+                <td className="py-2 text-center tabular-nums">
+                  <span className="inline-flex items-center justify-center gap-1">
                     <WindArrow
                       bearingDeg={h.bearingDeg}
                       className="h-3.5 w-3.5 text-zinc-400"
@@ -226,10 +226,10 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                     </span>
                   </span>
                 </td>
-                <td className="py-2 text-right tabular-nums text-zinc-500">
+                <td className="py-2 text-center tabular-nums text-zinc-500">
                   {h.gustMs.toFixed(0)}
                 </td>
-                <td className="py-2 text-right">
+                <td className="py-2 text-center">
                   <RainCell h={h} />
                 </td>
                 <td className="py-2 pr-3 text-center">
@@ -252,7 +252,7 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
 function RainCell({ h }: { h: ForecastHour }) {
   if (h.thunder) {
     return (
-      <span className="inline-flex items-center justify-end gap-0.5 font-medium text-amber-600 dark:text-amber-400">
+      <span className="inline-flex items-center justify-center gap-0.5 font-medium text-amber-600 dark:text-amber-400">
         <BoltIcon className="h-3.5 w-3.5" />
         {h.precipProb}%
       </span>
@@ -260,7 +260,7 @@ function RainCell({ h }: { h: ForecastHour }) {
   }
   if (h.precipMmH >= 0.1) {
     return (
-      <span className="inline-flex items-center justify-end gap-0.5 text-sky-600 dark:text-sky-400">
+      <span className="inline-flex items-center justify-center gap-0.5 text-sky-600 dark:text-sky-400">
         <DropletIcon className="h-3 w-3" />
         {h.precipMmH.toFixed(1)}
         <span className="ml-0.5 text-[11px] text-zinc-400">{h.precipProb}%</span>
