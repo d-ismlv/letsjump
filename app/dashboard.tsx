@@ -169,7 +169,17 @@ function DzCard({
 function HourTable({ hours }: { hours: ForecastHour[] }) {
   return (
     <div className="overflow-x-auto px-2 pb-2">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[330px] table-fixed text-sm">
+        {/* Fixed widths so columns sit in the exact same place on every day/DZ.
+            SKY has no width — it absorbs the slack, keeping the rest deterministic. */}
+        <colgroup>
+          <col className="w-14" />
+          <col />
+          <col className="w-16" />
+          <col className="w-9" />
+          <col className="w-12" />
+          <col className="w-8" />
+        </colgroup>
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
             <th className="py-2 pl-3 text-left font-medium">Time</th>
