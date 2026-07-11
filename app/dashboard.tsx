@@ -173,12 +173,12 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
         {/* Fixed widths so columns sit in the exact same place on every day/DZ.
             SKY has no width — it absorbs the slack, keeping the rest deterministic. */}
         <colgroup>
-          <col className="w-14" />
+          <col className="w-12" />
           <col />
           <col className="w-16" />
           <col className="w-9" />
-          <col className="w-12" />
-          <col className="w-8" />
+          <col className="w-16" />
+          <col className="w-10" />
         </colgroup>
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
@@ -229,10 +229,10 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                 <td className="py-2 text-center tabular-nums text-zinc-500">
                   {h.gustMs.toFixed(0)}
                 </td>
-                <td className="py-2 text-center">
+                <td className="py-2 pl-1 pr-2 text-center">
                   <RainCell h={h} />
                 </td>
-                <td className="py-2 pr-3 text-center">
+                <td className="py-2 pr-2 text-center">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_DOT[h.status]}`}
                     title={dotTitle(h)}
