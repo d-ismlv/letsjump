@@ -75,11 +75,12 @@ export type DayForecast = {
   hours: ForecastHour[]; // jumping-window hours only
   verdict: Verdict;
   summary: string; // one-line human reason
-  bestWindow: {
+  windows: {
     from: number;
     to: number;
     quality: "clear" | "marginal";
-  } | null; // local hours, inclusive
+  }[]; // every usable local-time run, inclusive
+  likelyEarlyStopFrom: number | null;
 };
 
 export type DropzoneForecast = {

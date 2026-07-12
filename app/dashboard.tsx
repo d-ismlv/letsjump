@@ -163,23 +163,22 @@ function DzCard({
           >
             {d ? verdict : "NO DATA"}
           </span>
-          {/* The best window is always shown green (it's the good stretch);
-              height is reserved so NO-GO/error never shifts the table. */}
+          {/* Height is reserved so NO-GO/error never shifts the table. */}
           <div className="flex h-5 items-center">
             {error ? (
               <span className="text-xs text-rose-600" title={error}>
                 forecast unavailable
               </span>
-            ) : d?.bestWindow ? (
+            ) : d && d.windows.length > 0 ? (
               <span
                 className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
-                  d.bestWindow.quality === "clear"
+                  d.likelyEarlyStopFrom == null && d.windows[0].quality === "clear"
                     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                     : "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"
                 }`}
                 title={d.summary}
               >
-                {bestChanceLabel(d.bestWindow, d.close)}
+                {chanceLabel(d.windows, d.close, d.likelyEarlyStopFrom)}
               </span>
             ) : null}
           </div>
@@ -481,14 +480,21 @@ function RainCell({ h }: { h: ForecastHour }) {
 
 const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
-// "All day" when the good run covers the whole jumping window, else the range.
-function bestChanceLabel(
-  w: { from: number; to: number; quality: "clear" | "marginal" },
+// Compact every usable run into the card chip without wrapping.
+function chanceLabel(
+  windows: { from: number; to: number; quality: "clear" | "marginal" }[],
   close: number,
+  likelyEarlyStopFrom: number | null,
 ): string {
-  if (w.from <= JUMP_FROM && w.to >= close) return "All day";
-  const range = `${pad(w.from)}–${pad(w.to)}`;
-  return w.quality === "marginal" ? `Marginal ${range}` : range;
+  const allDay =
+    windows.length === 1 &&
+    windows[0].from <= JUMP_FROM &&
+    windows[0].to >= close;
+  if (allDay) return "All day";
+  const ranges = windows.map((w) => `${w.from}–${w.to}`).join(" · ");
+  return likelyEarlyStopFrom == null
+    ? ranges
+    : `${ranges} · stop ~${likelyEarlyStopFrom}`;
 }
 
 // Shows how fresh the forecast is and auto-refreshes past a staleness threshold

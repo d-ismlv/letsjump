@@ -63,7 +63,9 @@ Everything runs server-side, in four steps:
 4. **Reconcile.** Live wind, gusts and aviation ceiling can only downgrade
    today's headline. Future-day tabs never show or apply current observations.
    Contradictory or incomplete forecast fields never score GO.
-   The remaining hours become one outlook per dropzone, plus the best window.
+   The remaining hours become one outlook per dropzone. Every usable window is
+   retained (for example `09–13 · 16–20`); terminal wind starting at least three
+   hours before closing is flagged as a likely early stop.
 
 | Verdict | What it means |
 |---|---|

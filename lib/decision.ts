@@ -209,7 +209,7 @@ const LIMITER_LABEL: Record<Exclude<Limiter, null>, string> = {
   data: "weather data",
 };
 
-// Roll up a day's jumping-window hours into one verdict + summary + best window.
+// Roll up a day's jumping-window hours into one verdict + every usable window.
 export function rateDay(
   hours: ForecastHour[],
   meta: { dateISO: string; label: string; close: number },
@@ -220,13 +220,16 @@ export function rateDay(
       hours,
       verdict: "NO-GO",
       summary: "No forecast data for the jumping window.",
-      bestWindow: null,
+      windows: [],
+      likelyEarlyStopFrom: null,
     };
   }
 
   const goHours = hours.filter((h) => h.status === "go").length;
-  const bestGo = longestRun(hours, (h) => h.status === "go");
-  const bestOk = longestRun(hours, (h) => h.status !== "nogo");
+  const goRuns = findRuns(hours, (h) => h.status === "go");
+  const okRuns = findRuns(hours, (h) => h.status !== "nogo");
+  const bestGo = longestRun(goRuns);
+  const bestOk = longestRun(okRuns);
   const stormy = hours.some((h) => h.thunder);
   // Conservative: real rain odds anywhere in the window make a green GO
   // over-confident — the point forecast can't see cells drifting over from nearby.
@@ -249,40 +252,65 @@ export function rateDay(
   // before this DZ's close, don't headline GO — by then people have left or the
   // day gets called for low interest.
   const lateStart = meta.close - LATE_MARGIN;
-  const firstGo = hours.find((h) => h.status === "go");
+  const firstClearRun = goRuns.find((run) => run.len >= 2);
   const eveningOnly =
-    bestGo.len >= 2 && firstGo != null && firstGo.hour >= lateStart;
+    firstClearRun != null && hours[firstClearRun.start].hour >= lateStart;
   if (eveningOnly && verdict === "GO") verdict = "CONSIDER";
 
-  // Best window = longest clean-air run, falling back to the longest non-nogo run.
-  const clearWindow = bestGo.len >= 2;
-  const runForWindow = clearWindow ? bestGo : bestOk.len >= 2 ? bestOk : null;
-  const bestWindow = runForWindow
-    ? {
-        from: hours[runForWindow.start].hour,
-        to: hours[runForWindow.end].hour,
-        quality: clearWindow ? "clear" as const : "marginal" as const,
-      }
-    : null;
+  // Keep every clean run. Only fall back to marginal runs when no clean run is
+  // long enough. This preserves a later restart after a temporary weather stop.
+  const clearRuns = goRuns.filter((run) => run.len >= 2);
+  const marginalRuns = okRuns.filter((run) => run.len >= 2);
+  const windowRuns = clearRuns.length > 0 ? clearRuns : marginalRuns;
+  const windows = windowRuns.map((run) => ({
+    from: hours[run.start].hour,
+    to: hours[run.end].hour,
+    quality: clearRuns.length > 0 ? "clear" as const : "marginal" as const,
+  }));
+
+  // If wind/gust deterioration begins at least three hours before closing and
+  // there is no later GO recovery, operations are likely to finish early.
+  let trailingStart = hours.length;
+  while (trailingStart > 0 && hours[trailingStart - 1].status !== "go") {
+    trailingStart--;
+  }
+  const terminalHours = hours.slice(trailingStart);
+  const firstTerminalWind = terminalHours.find(
+    (hour) => hour.limiter === "wind" || hour.limiter === "gust",
+  );
+  const likelyEarlyStopFrom =
+    firstTerminalWind != null && firstTerminalWind.hour <= lateStart
+      ? firstTerminalWind.hour
+      : null;
+  if (likelyEarlyStopFrom != null && verdict === "GO") verdict = "CONSIDER";
 
   return {
     ...meta,
     hours,
     verdict,
-    summary: summarise(hours, verdict, bestWindow, stormy, eveningOnly),
-    bestWindow,
+    summary: summarise(
+      hours,
+      verdict,
+      windows,
+      stormy,
+      eveningOnly,
+      likelyEarlyStopFrom,
+    ),
+    windows,
+    likelyEarlyStopFrom,
   };
 }
 
 function summarise(
   hours: ForecastHour[],
   verdict: Verdict,
-  bestWindow: { from: number; to: number; quality: "clear" | "marginal" } | null,
+  windows: { from: number; to: number; quality: "clear" | "marginal" }[],
   stormy: boolean,
   eveningOnly: boolean,
+  likelyEarlyStopFrom: number | null,
 ): string {
-  const window = bestWindow
-    ? `${pad(bestWindow.from)}–${pad(bestWindow.to)}`
+  const window = windows.length > 0
+    ? windows.map((w) => `${pad(w.from)}–${pad(w.to)}`).join(" and ")
     : null;
 
   // Call out the first stormy hour — that's what usually ends the day.
@@ -297,20 +325,23 @@ function summarise(
     : "";
 
   if (verdict === "GO" && window) {
-    // Warn if it deteriorates later in the day so "GO" doesn't hide an afternoon
-    // washout — go early is still the right call, but say so.
-    const decline = bestWindow
-      ? hours.find((h) => h.hour > bestWindow.to && h.status !== "go")
-      : undefined;
+    const lastWindow = windows[windows.length - 1];
+    const decline = hours.find(
+      (h) => h.hour > lastWindow.to && h.status !== "go",
+    );
     if (decline) {
       const what = decline.limiter ? LIMITER_LABEL[decline.limiter] : "conditions";
-      return `Clear window ${window} — go early; then ${what} after ~${pad(decline.hour)}.`;
+      return `Clear windows ${window}; then ${what} after ~${pad(decline.hour)}.`;
     }
-    return `Clear-air window ${window} within limits — worth the drive.`;
+    return `${windows.length > 1 ? "Clear windows" : "Clear window"} ${window} — worth the drive.`;
   }
   if (verdict === "CONSIDER") {
+    if (likelyEarlyStopFrom != null) {
+      const w = window ? `Jump ${window}. ` : "";
+      return `${w}Wind likely ends ops from ~${pad(likelyEarlyStopFrom)}.`;
+    }
     if (stormy || wetNote) {
-      const w = window ? `Best chance ${window}. ` : "";
+      const w = window ? `Best chances ${window}. ` : "";
       const note = stormy ? stormNote : wetNote;
       return `${w}${note} Unsettled — check the radar before driving.`.trim();
     }
@@ -318,7 +349,7 @@ function summarise(
       return `Only clears late (${window}). Turnout iffy — the day may get called.`;
     }
     const blocker = dominantLimiter(hours.filter((h) => h.status !== "go"));
-    const w = window ? `Marginal window ${window}. ` : "";
+    const w = window ? `${windows.length > 1 ? "Windows" : "Window"} ${window}. ` : "";
     return `${w}${blocker ? `Watch the ${blocker}.` : "Mixed conditions — keep an eye on it."}`;
   }
   const blocker = dominantLimiter(hours.filter((h) => h.status === "nogo"));
@@ -343,23 +374,34 @@ function dominantLimiter(hours: ForecastHour[]): string | null {
   return best ? LIMITER_LABEL[best] : null;
 }
 
-// Longest consecutive run of hours matching a predicate.
-function longestRun(
+type Run = { len: number; start: number; end: number };
+
+// Every consecutive run matching a predicate.
+function findRuns(
   hours: ForecastHour[],
   ok: (h: ForecastHour) => boolean,
-): { len: number; start: number; end: number } {
-  let best = { len: 0, start: -1, end: -1 };
+): Run[] {
+  const runs: Run[] = [];
   let curStart = -1;
   for (let i = 0; i < hours.length; i++) {
     if (ok(hours[i])) {
       if (curStart === -1) curStart = i;
-      const len = i - curStart + 1;
-      if (len > best.len) best = { len, start: curStart, end: i };
-    } else {
+    } else if (curStart !== -1) {
+      runs.push({ len: i - curStart, start: curStart, end: i - 1 });
       curStart = -1;
     }
   }
-  return best;
+  if (curStart !== -1) {
+    runs.push({ len: hours.length - curStart, start: curStart, end: hours.length - 1 });
+  }
+  return runs;
+}
+
+function longestRun(runs: Run[]): Run {
+  return runs.reduce(
+    (best, run) => run.len > best.len ? run : best,
+    { len: 0, start: -1, end: -1 },
+  );
 }
 
 const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
