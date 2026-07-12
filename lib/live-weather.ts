@@ -1,9 +1,15 @@
-import { gustSpreadStatus, LIMITS } from "./decision";
+import {
+  gustSpeedStatus,
+  gustSpreadStatus,
+  LIMITS,
+  windSpeedStatus,
+} from "./decision";
 import type { Dropzone, HourStatus, LiveConditions } from "./types";
 
 type MetarCloud = { cover?: string; base?: number };
 type Metar = {
   reportTime?: string;
+  temp?: number;
   wdir?: number;
   wspd?: number;
   wgst?: number;
@@ -11,22 +17,32 @@ type Metar = {
   clouds?: MetarCloud[];
 };
 
+type OnsiteWeather = {
+  gustMs: number | null;
+  temperatureC: number | null;
+};
+
 const rank: Record<HourStatus, number> = { go: 0, consider: 1, nogo: 2 };
 const worst = (a: HourStatus, b: HourStatus) => (rank[a] >= rank[b] ? a : b);
 const knotsToMs = (knots: number) => knots * 0.514444;
 
 export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions> {
-  const [metar, onsiteGustMs] = await Promise.all([
+  const [metar, onsiteWeather] = await Promise.all([
     fetchMetar(dz.metarStation),
-    dz.id === "gryttjom" ? fetchGryttjomGust() : Promise.resolve(null),
+    dz.id === "gryttjom" ? fetchGryttjomWeather() : Promise.resolve(null),
   ]);
+  const onsiteGustMs = onsiteWeather?.gustMs ?? null;
+  const onsiteTemperatureC = onsiteWeather?.temperatureC ?? null;
+  const hasOnsiteData = onsiteGustMs != null || onsiteTemperatureC != null;
 
   const fallback: LiveConditions = {
     status: "consider",
-    dataState: onsiteGustMs == null ? "unavailable" : "partial",
+    dataState: hasOnsiteData ? "partial" : "unavailable",
     observedAt: null,
     windMs: null,
     gustMs: onsiteGustMs,
+    temperatureC: onsiteTemperatureC,
+    temperatureSource: onsiteTemperatureC == null ? null : "onsite",
     bearingDeg: null,
     cloudBaseFt: null,
     ceilingFt: null,
@@ -38,8 +54,8 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   };
 
   if (!metar) {
-    if (onsiteGustMs == null) return fallback;
-    const gustStatus = band(onsiteGustMs, LIMITS.gustGood, LIMITS.gustMax);
+    if (!hasOnsiteData) return fallback;
+    const gustStatus = onsiteGustMs == null ? "go" : gustSpeedStatus(onsiteGustMs);
     return {
       ...fallback,
       status: worst("consider", gustStatus),
@@ -59,7 +75,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   if (ageMs > 90 * 60 * 1000) {
     return {
       ...fallback,
-      dataState: onsiteGustMs == null ? "stale" : "partial",
+      dataState: hasOnsiteData ? "partial" : "stale",
       observedAt,
       reasons: ["Live aviation observation is stale"],
     };
@@ -67,6 +83,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
 
   const windMs = finite(metar.wspd) ? knotsToMs(metar.wspd) : null;
   const metarGustMs = finite(metar.wgst) ? knotsToMs(metar.wgst) : null;
+  const metarTemperatureC = finite(metar.temp) ? metar.temp : null;
   const gustComesFromOnsite =
     onsiteGustMs != null && (metarGustMs == null || onsiteGustMs >= metarGustMs);
   const gustMs = maxNullable(metarGustMs, onsiteGustMs);
@@ -76,14 +93,14 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const reasons: string[] = [];
 
   if (windMs != null) {
-    const s = band(windMs, LIMITS.windGood, LIMITS.windMax);
+    const s = windSpeedStatus(windMs);
     status = worst(status, s);
     if (s !== "go") {
       reasons.push(s === "consider" ? "Mean wind close to limit" : "Mean wind over limit");
     }
   }
   if (gustMs != null) {
-    const s = band(gustMs, LIMITS.gustGood, LIMITS.gustMax);
+    const s = gustSpeedStatus(gustMs);
     status = worst(status, s);
     if (s !== "go") {
       reasons.push(s === "consider" ? "Max gust close to limit" : "Max gust over limit");
@@ -113,6 +130,12 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     observedAt,
     windMs,
     gustMs,
+    temperatureC: onsiteTemperatureC ?? metarTemperatureC,
+    temperatureSource: onsiteTemperatureC != null
+      ? "onsite"
+      : metarTemperatureC != null
+        ? "metar"
+        : null,
     bearingDeg: finite(metar.wdir) ? metar.wdir : null,
     cloudBaseFt,
     ceilingFt,
@@ -139,7 +162,7 @@ async function fetchMetar(station: string): Promise<Metar | null> {
   }
 }
 
-async function fetchGryttjomGust(): Promise<number | null> {
+async function fetchGryttjomWeather(): Promise<OnsiteWeather | null> {
   try {
     const res = await fetch("https://insidan.skydive.se/Weather", {
       headers: { "User-Agent": "letsjump/2.0" },
@@ -147,13 +170,22 @@ async function fetchGryttjomGust(): Promise<number | null> {
     });
     if (!res.ok) return null;
     const html = await res.text();
-    const match = html.match(/(?:Max gust last 30 min|Max stöt senaste 30 min):\s*([\d.,]+)\s*m\/s/i);
-    if (!match) return null;
-    const value = Number(match[1].replace(",", "."));
-    return Number.isFinite(value) ? value : null;
+    const gustMatch = html.match(/(?:Max gust last 30 min|Max stöt senaste 30 min):\s*([\d.,]+)\s*m\/s/i);
+    const temperatureMatch = html.match(/<h2[^>]*>\s*([+-]?[\d.,]+)\s*°C\s*<\/h2>/i);
+    const gustMs = parseDecimal(gustMatch?.[1]);
+    const temperatureC = parseDecimal(temperatureMatch?.[1]);
+    return gustMs == null && temperatureC == null
+      ? null
+      : { gustMs, temperatureC };
   } catch {
     return null;
   }
+}
+
+function parseDecimal(value: string | undefined): number | null {
+  if (value == null) return null;
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function contextual(dz: Dropzone, status: HourStatus): HourStatus {
@@ -161,12 +193,6 @@ function contextual(dz: Dropzone, status: HourStatus): HourStatus {
   return dz.metarDistanceKm > LIMITS.remoteStationKm && status === "nogo"
     ? "consider"
     : status;
-}
-
-function band(value: number, good: number, max: number): HourStatus {
-  if (value <= good) return "go";
-  if (value <= max) return "consider";
-  return "nogo";
 }
 
 function lowestCeiling(clouds: MetarCloud[] | undefined): number | null {

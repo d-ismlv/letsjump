@@ -40,15 +40,15 @@ export default function HowItWorksPage() {
   const hourlyRules = [
     {
       factor: "Mean wind",
-      go: `≤ ${LIMITS.windGood} m/s`,
-      consider: `> ${LIMITS.windGood} to ${LIMITS.windMax} m/s`,
-      nogo: `> ${LIMITS.windMax} m/s`,
+      go: `< ${LIMITS.windConsider} m/s`,
+      consider: `Exactly ${LIMITS.windConsider} m/s`,
+      nogo: `> ${LIMITS.windNoGoAbove} m/s`,
     },
     {
       factor: "Absolute gust",
-      go: `≤ ${LIMITS.gustGood} m/s`,
-      consider: `> ${LIMITS.gustGood} to ${LIMITS.gustMax} m/s`,
-      nogo: `> ${LIMITS.gustMax} m/s`,
+      go: `< ${LIMITS.gustConsider} m/s`,
+      consider: `Exactly ${LIMITS.gustConsider} m/s`,
+      nogo: `> ${LIMITS.gustNoGoAbove} m/s`,
     },
     {
       factor: "Gust spread (gust − wind)",
@@ -109,7 +109,10 @@ export default function HowItWorksPage() {
             The worst result in a row wins. A steady 2 m/s wind with a 5.3 m/s
             gust is GO on wind: its spread is only 3.3 m/s. Spread becomes
             CONSIDER at exactly {LIMITS.gustSpreadConsider} m/s and NO-GO only
-            above {LIMITS.gustSpreadNoGo} m/s.
+            above {LIMITS.gustSpreadNoGo} m/s. Independently, exactly
+            {LIMITS.gustConsider} m/s wind or gust is CONSIDER and anything above
+            it is NO-GO. The formal jump hold is {LIMITS.formalWindHold} m/s, but
+            this driving aid turns red sooner.
           </p>
           <RuleTable rows={hourlyRules} />
         </section>
@@ -153,6 +156,7 @@ export default function HowItWorksPage() {
             <li>Otherwise the day is NO-GO.</li>
             <li>No usable forecast hours for the operating window is also NO-GO.</li>
             <li>Any thunder risk or rain probability ≥ {LIMITS.probUnsettled}% downgrades a GO day to CONSIDER.</li>
+            <li>Any forecast wind or gust ≥ {LIMITS.windConsider} m/s also prevents a GO day headline because it is close to the {LIMITS.formalWindHold} m/s formal hold.</li>
             <li>A clear window starting within the final {LATE_MARGIN} hours before closing is shown as CONSIDER because it may be too late for reliable operations.</li>
           </ul>
         </section>
@@ -189,6 +193,25 @@ export default function HowItWorksPage() {
             future hours. DMI has a model-specific cloud-base field, but it is a
             separate limited-range model source and is not mixed into this
             decision yet.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">6. Temperature sources</h2>
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            Temperature is informational and never changes a verdict. Future
+            hourly values are Open-Meteo&apos;s 2 m forecast. For the current hour,
+            the app prefers a server-readable onsite observation, then falls back
+            to the METAR temperature. Gryttjom exposes its onsite temperature on
+            its Weather page, so that value replaces the current forecast hour.
+          </p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            FK Aros Skyview renders its live surface temperature only after a
+            browser establishes a Blazor session; the normal server response is
+            a placeholder. Until Aros provides a stable server-readable endpoint,
+            the app uses ESOW METAR for the current Aros hour and does not confuse
+            Skyview&apos;s FL020/FL050/FL100 temperatures with surface temperature.
+            Hover an hourly temperature to see its source.
           </p>
         </section>
 

@@ -19,6 +19,8 @@ export type Dropzone = {
 export type ForecastHour = {
   time: string; // ISO local (Europe/Stockholm)
   hour: number; // 0-23, local
+  temperatureC: number | null;
+  temperatureSource: "forecast" | "metar" | "onsite";
   windMs: number;
   gustMs: number;
   bearingDeg: number; // direction wind comes FROM
@@ -54,6 +56,8 @@ export type LiveConditions = {
   observedAt: string | null;
   windMs: number | null;
   gustMs: number | null;
+  temperatureC: number | null;
+  temperatureSource: "metar" | "onsite" | null;
   bearingDeg: number | null;
   cloudBaseFt: number | null; // lowest reported METAR cloud layer, feet AGL
   ceilingFt: number | null;

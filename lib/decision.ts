@@ -17,10 +17,13 @@ export const LATE_MARGIN = 3;
 // Thresholds for a licensed (B/C/D) sport jumper. Tune here.
 // Wind/gust in m/s, rain in mm/h, cloud in % cover.
 export const LIMITS = {
-  windGood: 9,
-  windMax: 11,
-  gustGood: 11,
-  gustMax: 14,
+  // 11 m/s is the formal operational hold. The app is deliberately stricter:
+  // exactly 10 is caution, and anything above 10 is already NO-GO.
+  windConsider: 10,
+  windNoGoAbove: 10,
+  gustConsider: 10,
+  gustNoGoAbove: 10,
+  formalWindHold: 11,
   // Gust spread is scored independently from absolute wind and gust speed.
   // Exactly 7–8 m/s = CONSIDER; anything above 8 m/s = NO-GO.
   gustSpreadConsider: 7,
@@ -119,11 +122,11 @@ export function rateHour(s: Sample): {
   );
 
   const factors: { key: Exclude<Limiter, null>; status: HourStatus }[] = [
-    { key: "wind", status: band(s.windMs, LIMITS.windGood, LIMITS.windMax) },
+    { key: "wind", status: windSpeedStatus(s.windMs) },
     {
       key: "gust",
       status: worst(
-        band(s.gustMs, LIMITS.gustGood, LIMITS.gustMax),
+        gustSpeedStatus(s.gustMs),
         gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
       ),
     },
@@ -166,6 +169,32 @@ export function gustSpreadStatus(spread: number): HourStatus {
   return "go";
 }
 
+export function windSpeedStatus(windMs: number): HourStatus {
+  return operationalSpeedStatus(
+    windMs,
+    LIMITS.windConsider,
+    LIMITS.windNoGoAbove,
+  );
+}
+
+export function gustSpeedStatus(gustMs: number): HourStatus {
+  return operationalSpeedStatus(
+    gustMs,
+    LIMITS.gustConsider,
+    LIMITS.gustNoGoAbove,
+  );
+}
+
+function operationalSpeedStatus(
+  value: number,
+  considerAt: number,
+  noGoAbove: number,
+): HourStatus {
+  if (value > noGoAbove) return "nogo";
+  if (value >= considerAt) return "consider";
+  return "go";
+}
+
 function worst(a: HourStatus, b: HourStatus): HourStatus {
   const rank = { go: 0, consider: 1, nogo: 2 } as const;
   return rank[a] >= rank[b] ? a : b;
@@ -203,6 +232,9 @@ export function rateDay(
   // over-confident — the point forecast can't see cells drifting over from nearby.
   const unsettled =
     stormy || hours.some((h) => h.precipProb >= LIMITS.probUnsettled);
+  const nearWindHold = hours.some(
+    (h) => h.windMs >= LIMITS.windConsider || h.gustMs >= LIMITS.gustConsider,
+  );
 
   let verdict: Verdict;
   if (bestGo.len >= 2) verdict = "GO";
@@ -211,7 +243,7 @@ export function rateDay(
 
   // Never headline a full GO on an unsettled day. A clear morning still shows its
   // green best-window chip so the "go early" signal isn't lost.
-  if (unsettled && verdict === "GO") verdict = "CONSIDER";
+  if ((unsettled || nearWindHold) && verdict === "GO") verdict = "CONSIDER";
 
   // Evening-only clearance: if nothing is jumpable until the last few hours
   // before this DZ's close, don't headline GO — by then people have left or the

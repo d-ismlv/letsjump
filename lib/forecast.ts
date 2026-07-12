@@ -8,6 +8,7 @@ import { JUMP_FROM, rateDay, rateHour } from "./decision";
 import { fetchLiveConditions } from "./live-weather";
 
 const HOURLY = [
+  "temperature_2m",
   "wind_speed_10m",
   "wind_gusts_10m",
   "wind_direction_10m",
@@ -80,6 +81,7 @@ export async function fetchDropzoneForecast(
       hourCycle: "h23",
     }).format(now),
   );
+  const live = await livePromise;
 
   const h = data.hourly;
   // Group jumping-window hours by local date.
@@ -122,10 +124,17 @@ export async function fetchDropzoneForecast(
       dataComplete,
     };
     const { status, limiter, thunder, cloudUncertain } = rateHour(sample);
+    const liveTemperature =
+      date === todayISO && hour === currentHour ? live.temperatureC : null;
 
     const row: ForecastHour = {
       time: iso,
       hour,
+      temperatureC: liveTemperature ??
+        (Number.isFinite(h.temperature_2m[i]) ? h.temperature_2m[i] : null),
+      temperatureSource: liveTemperature != null
+        ? (live.temperatureSource ?? "metar")
+        : "forecast",
       windMs: sample.windMs,
       gustMs: sample.gustMs,
       bearingDeg: h.wind_direction_10m[i] ?? 0,
@@ -167,5 +176,5 @@ export async function fetchDropzoneForecast(
     });
   });
 
-  return { dz, days, live: await livePromise, error: null };
+  return { dz, days, live, error: null };
 }

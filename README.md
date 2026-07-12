@@ -20,6 +20,8 @@
 observations with a **GO / CONSIDER / NO-GO** forecast for **FK Aros** (Västerås) and **Skydive
 Stockholm** (Gryttjom), for today and tomorrow. Wind, gusts, rain, cloud and
 thunder, scored hour-by-hour over the 09:00–21:00 window.
+Hourly temperature is shown from Open-Meteo, with the current hour replaced by
+an available onsite or METAR observation; temperature does not affect the verdict.
 
 Decision aid only — always confirm actual ops and conditions at the DZ.
 
@@ -76,10 +78,11 @@ matches how jumpers actually behave: a shower *chance* only drops a day to
 CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
 solid cloud deck are the real NO-GO. An unexplained total-cloud/low-cloud
 disagreement is marked uncertain instead of silently becoming green. Steady wind
-and gusts are scored separately from gust spread: a spread below 7 m/s stays
-green, 7–8 m/s is CONSIDER, and above 8 m/s is NO-GO. The live METAR box also
-shows the lowest reported cloud base, toggling between feet and metres. All the
-thresholds live in `LIMITS`
+and gusts are scored separately from gust spread: exactly 10 m/s is CONSIDER and
+anything above 10 m/s is NO-GO, before the formal 11 m/s operational hold;
+independently, a spread below 7 m/s stays green, 7–8 m/s is CONSIDER, and above 8 m/s is NO-GO.
+The live METAR box also shows the lowest reported cloud base, toggling between
+feet and metres. All the thresholds live in `LIMITS`
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
 days.
 

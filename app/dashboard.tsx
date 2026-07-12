@@ -279,7 +279,11 @@ function LiveConditionsPanel({
           : "Data unavailable";
   const sourceLabel =
     live.dataState === "partial"
-      ? "Onsite gust only"
+      ? live.onsiteGustMs != null && live.temperatureSource === "onsite"
+        ? "Onsite temperature + gust"
+        : live.onsiteGustMs != null
+          ? "Onsite gust only"
+          : "Onsite temperature only"
       : live.dataState === "unavailable"
         ? `${live.station} unavailable`
         : `${live.station} · ${live.stationDistanceKm} km away`;
@@ -347,12 +351,13 @@ function LiveConditionsPanel({
 function HourTable({ hours }: { hours: ForecastHour[] }) {
   return (
     <div className="overflow-x-auto px-2 pb-2">
-      <table className="w-full min-w-[330px] table-fixed text-sm">
+      <table className="w-full min-w-[325px] table-fixed text-sm">
         {/* Fixed widths so columns sit in the exact same place on every day/DZ.
             SKY has no width — it absorbs the slack, keeping the rest deterministic. */}
         <colgroup>
           <col className="w-12" />
           <col />
+          <col className="w-12" />
           <col className="w-16" />
           <col className="w-9" />
           <col className="w-16" />
@@ -362,6 +367,7 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
           <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
             <th className="py-2 pl-3 text-left font-medium">Time</th>
             <th className="py-2 pl-4 text-left font-medium">Sky</th>
+            <th className="py-2 text-center font-medium">Temp</th>
             <th className="py-2 text-center font-medium">Wind</th>
             <th className="py-2 text-center font-medium">Gust</th>
             <th className="py-2 text-center font-medium">Rain</th>
@@ -398,6 +404,12 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                     </span>
                   </div>
                 </td>
+                <td
+                  className="py-2 text-center tabular-nums text-zinc-500"
+                  title={temperatureSourceLabel(h.temperatureSource)}
+                >
+                  {h.temperatureC == null ? "·" : `${h.temperatureC.toFixed(1)}°`}
+                </td>
                 <td className="py-2 text-center tabular-nums">
                   <span className="inline-flex items-center justify-center gap-1">
                     <WindArrow
@@ -429,6 +441,12 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
       </table>
     </div>
   );
+}
+
+function temperatureSourceLabel(source: ForecastHour["temperatureSource"]): string {
+  if (source === "onsite") return "Current onsite Skyview observation";
+  if (source === "metar") return "Current METAR observation";
+  return "Open-Meteo 2 m forecast";
 }
 
 // Rain cell leads with the signal that actually caught the storms: probability
@@ -517,8 +535,8 @@ export function Legend() {
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
       Live aviation observations temper today&apos;s outlook; hourly rows are the
       remaining forecast from {pad(JUMP_FROM)} to closing. Conflicting or missing
-      cloud data never scores GO. NO-GO needs wind &gt; {LIMITS.windMax} m/s,
-      gust &gt; {LIMITS.gustMax} m/s, gust spread &gt; {LIMITS.gustSpreadNoGo} m/s,
+      cloud data never scores GO. NO-GO needs wind &gt; {LIMITS.windNoGoAbove} m/s,
+      gust &gt; {LIMITS.gustNoGoAbove} m/s, gust spread &gt; {LIMITS.gustSpreadNoGo} m/s,
       steady rain &gt; {LIMITS.rainMax} mm/h,
       thunder (⚡), or solid low/mid cloud. A shower chance only dials it down to
       CONSIDER — scattered cells leave holes to jump.
