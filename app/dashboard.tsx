@@ -60,7 +60,7 @@ function dotTitle(h: ForecastHour): string {
   if (!h.limiter) return `${verdict}: within limits`;
   if (h.limiter === "gust") {
     const spread = Math.max(0, h.gustMs - h.windMs);
-    if (spread > LIMITS.gustSpreadGood) {
+    if (spread >= LIMITS.gustSpreadConsider) {
       return `${verdict}: gust spread ${spread.toFixed(1)} m/s ${h.status === "nogo" ? "is too high" : "is unsettled"}`;
     }
     return `${verdict}: ${h.status === "nogo" ? "gusts over limit" : "gusts close to limit"}`;
@@ -256,7 +256,7 @@ function LiveConditionsPanel({
 }: {
   live: LiveConditions;
 }) {
-  const [showFeet, setShowFeet] = useState(false);
+  const [showCloudBaseMetres, setShowCloudBaseMetres] = useState(false);
   const style = LIVE_STYLE[live.status];
   const observed = live.observedAt
     ? new Date(live.observedAt).toLocaleTimeString("en-GB", {
@@ -289,11 +289,12 @@ function LiveConditionsPanel({
       : live.dataState === "fresh"
         ? "Live values within limits"
         : "Current measurements unavailable";
-  const ceilingLabel = live.ceilingFt == null
+  const cloudBaseLabel = live.cloudBaseFt == null
     ? null
-    : showFeet
-      ? `${live.ceilingFt.toLocaleString("en-US")} ft`
-      : `${Math.round((live.ceilingFt * 0.3048) / 10) * 10} m`;
+    : showCloudBaseMetres
+      ? `${Math.round((live.cloudBaseFt * 0.3048) / 10) * 10} m`
+      : `${live.cloudBaseFt.toLocaleString("en-US")} ft`;
+  const clearSky = ["CLR", "SKC", "NSC", "NCD"].includes(live.cloudCover ?? "");
 
   return (
     <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[96px]">
@@ -318,20 +319,22 @@ function LiveConditionsPanel({
         {live.gustMs != null && (
           <span className="col-start-2 whitespace-nowrap"><span className="text-zinc-400">Max gust</span> {live.gustMs.toFixed(1)} m/s</span>
         )}
-        {ceilingLabel && (
-          <span className="col-start-3 whitespace-nowrap">
-            <span className="text-zinc-400">Ceiling</span> {live.cloudCover}{" "}
+        <span className="col-start-3 whitespace-nowrap">
+          <span className="text-zinc-400">Cloud base</span>{" "}
+          {cloudBaseLabel ? (
             <button
               type="button"
-              onClick={() => setShowFeet((value) => !value)}
-              aria-label={`Ceiling ${ceilingLabel}. Show ${showFeet ? "metres" : "feet"}`}
-              title={`Click to show ${showFeet ? "metres" : "feet"}`}
+              onClick={() => setShowCloudBaseMetres((value) => !value)}
+              aria-label={`Cloud base ${cloudBaseLabel}. Show ${showCloudBaseMetres ? "feet" : "metres"}`}
+              title={`Lowest reported METAR cloud layer. Click to show ${showCloudBaseMetres ? "feet" : "metres"}`}
               className="rounded-sm font-medium underline decoration-dotted underline-offset-2 hover:text-zinc-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-500 dark:hover:text-zinc-200"
             >
-              {ceilingLabel}
+              {cloudBaseLabel}
             </button>
-          </span>
-        )}
+          ) : (
+            <span className="text-zinc-400">{clearSky ? "clear" : "not reported"}</span>
+          )}
+        </span>
       </div>
 
       <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 lg:truncate" title={conditionNote}>
@@ -515,7 +518,8 @@ export function Legend() {
       Live aviation observations temper today&apos;s outlook; hourly rows are the
       remaining forecast from {pad(JUMP_FROM)} to closing. Conflicting or missing
       cloud data never scores GO. NO-GO needs wind &gt; {LIMITS.windMax} m/s,
-      gust &gt; {LIMITS.gustMax} m/s (or a turbulent gust spread), steady rain &gt; {LIMITS.rainMax} mm/h,
+      gust &gt; {LIMITS.gustMax} m/s, gust spread &gt; {LIMITS.gustSpreadNoGo} m/s,
+      steady rain &gt; {LIMITS.rainMax} mm/h,
       thunder (⚡), or solid low/mid cloud. A shower chance only dials it down to
       CONSIDER — scattered cells leave holes to jump.
     </p>

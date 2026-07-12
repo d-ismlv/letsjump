@@ -1,4 +1,4 @@
-import { LIMITS } from "./decision";
+import { gustSpreadStatus, LIMITS } from "./decision";
 import type { Dropzone, HourStatus, LiveConditions } from "./types";
 
 type MetarCloud = { cover?: string; base?: number };
@@ -28,6 +28,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     windMs: null,
     gustMs: onsiteGustMs,
     bearingDeg: null,
+    cloudBaseFt: null,
     ceilingFt: null,
     cloudCover: null,
     station: dz.metarStation,
@@ -69,6 +70,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const gustComesFromOnsite =
     onsiteGustMs != null && (metarGustMs == null || onsiteGustMs >= metarGustMs);
   const gustMs = maxNullable(metarGustMs, onsiteGustMs);
+  const cloudBaseFt = lowestCloudBase(metar.clouds);
   const ceilingFt = lowestCeiling(metar.clouds);
   let status: HourStatus = "go";
   const reasons: string[] = [];
@@ -92,15 +94,15 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   // meaningful gust spread across 44 km.
   if (!gustComesFromOnsite && windMs != null && metarGustMs != null) {
     const spread = Math.max(0, metarGustMs - windMs);
-    const s = band(spread, LIMITS.gustSpreadGood, LIMITS.gustSpreadMax);
+    const s = gustSpreadStatus(spread);
     status = worst(status, s);
     if (s !== "go") {
       reasons.push(s === "consider" ? "Gust spread is unsettled" : "Gust spread is too high");
     }
   }
 
-  if (ceilingFt != null && ceilingFt <= 8_000) {
-    const s: HourStatus = ceilingFt <= 3_000 ? "nogo" : "consider";
+  if (ceilingFt != null && ceilingFt <= LIMITS.ceilingConsiderFt) {
+    const s: HourStatus = ceilingFt <= LIMITS.ceilingNoGoFt ? "nogo" : "consider";
     status = worst(status, contextual(dz, s));
     reasons.push(`Low ${metar.cover ?? "cloud"} ceiling`);
   }
@@ -112,6 +114,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     windMs,
     gustMs,
     bearingDeg: finite(metar.wdir) ? metar.wdir : null,
+    cloudBaseFt,
     ceilingFt,
     cloudCover: metar.cover ?? null,
     station: dz.metarStation,
@@ -155,7 +158,9 @@ async function fetchGryttjomGust(): Promise<number | null> {
 
 function contextual(dz: Dropzone, status: HourStatus): HourStatus {
   // A remote station is regional context, not a hard stop at the DZ.
-  return dz.metarDistanceKm > 20 && status === "nogo" ? "consider" : status;
+  return dz.metarDistanceKm > LIMITS.remoteStationKm && status === "nogo"
+    ? "consider"
+    : status;
 }
 
 function band(value: number, good: number, max: number): HourStatus {
@@ -166,7 +171,17 @@ function band(value: number, good: number, max: number): HourStatus {
 
 function lowestCeiling(clouds: MetarCloud[] | undefined): number | null {
   const bases = (clouds ?? [])
-    .filter((c) => (c.cover === "BKN" || c.cover === "OVC") && finite(c.base))
+    .filter((c) =>
+      (c.cover === "BKN" || c.cover === "OVC" || c.cover === "VV") &&
+      finite(c.base),
+    )
+    .map((c) => c.base as number);
+  return bases.length ? Math.min(...bases) : null;
+}
+
+function lowestCloudBase(clouds: MetarCloud[] | undefined): number | null {
+  const bases = (clouds ?? [])
+    .filter((c) => finite(c.base))
     .map((c) => c.base as number);
   return bases.length ? Math.min(...bases) : null;
 }

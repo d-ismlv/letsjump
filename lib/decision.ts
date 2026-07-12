@@ -21,10 +21,10 @@ export const LIMITS = {
   windMax: 11,
   gustGood: 11,
   gustMax: 14,
-  // A large gap between sustained wind and the hourly maximum gust is a useful
-  // turbulence signal even when the absolute gust remains below the hard limit.
-  gustSpreadGood: 3,
-  gustSpreadMax: 5,
+  // Gust spread is scored independently from absolute wind and gust speed.
+  // Exactly 7–8 m/s = CONSIDER; anything above 8 m/s = NO-GO.
+  gustSpreadConsider: 7,
+  gustSpreadNoGo: 8,
   // Rain AMOUNT (mm/h). Scattered showers you can jump around ("holes"); it's
   // steady rain sitting over the DZ that actually stops the day.
   rainGood: 0.2, // dry enough
@@ -42,6 +42,10 @@ export const LIMITS = {
   cloudGoodMid: 55,
   cloudMaxLow: 65,
   cloudMaxMid: 85,
+  // Observed aviation ceiling, based on BKN/OVC/VV METAR layers.
+  ceilingConsiderFt: 8_000,
+  ceilingNoGoFt: 3_000,
+  remoteStationKm: 20,
   // Thunder heuristic: convective instability (CAPE, J/kg) with real rain odds.
   capeConvective: 250,
   probStorm: 55,
@@ -120,11 +124,7 @@ export function rateHour(s: Sample): {
       key: "gust",
       status: worst(
         band(s.gustMs, LIMITS.gustGood, LIMITS.gustMax),
-        band(
-          Math.max(0, s.gustMs - s.windMs),
-          LIMITS.gustSpreadGood,
-          LIMITS.gustSpreadMax,
-        ),
+        gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
       ),
     },
     { key: thunder ? "thunder" : "rain", status: rainStatus },
@@ -158,6 +158,12 @@ function band(value: number, good: number, max: number): HourStatus {
   if (value <= good) return "go";
   if (value <= max) return "consider";
   return "nogo";
+}
+
+export function gustSpreadStatus(spread: number): HourStatus {
+  if (spread > LIMITS.gustSpreadNoGo) return "nogo";
+  if (spread >= LIMITS.gustSpreadConsider) return "consider";
+  return "go";
 }
 
 function worst(a: HourStatus, b: HourStatus): HourStatus {

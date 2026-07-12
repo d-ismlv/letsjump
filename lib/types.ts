@@ -55,6 +55,7 @@ export type LiveConditions = {
   windMs: number | null;
   gustMs: number | null;
   bearingDeg: number | null;
+  cloudBaseFt: number | null; // lowest reported METAR cloud layer, feet AGL
   ceilingFt: number | null;
   cloudCover: string | null;
   station: string;

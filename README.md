@@ -76,9 +76,10 @@ matches how jumpers actually behave: a shower *chance* only drops a day to
 CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
 solid cloud deck are the real NO-GO. An unexplained total-cloud/low-cloud
 disagreement is marked uncertain instead of silently becoming green. Steady wind
-and gusts are scored separately from gust spread: 8–9 m/s can remain green when
-steady, while a large jump from mean wind to the peak is treated as a turbulence
-signal. All the thresholds live in `LIMITS`
+and gusts are scored separately from gust spread: a spread below 7 m/s stays
+green, 7–8 m/s is CONSIDER, and above 8 m/s is NO-GO. The live METAR box also
+shows the lowest reported cloud base, toggling between feet and metres. All the
+thresholds live in `LIMITS`
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
 days.
 

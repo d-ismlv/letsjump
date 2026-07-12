@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DROPZONES } from "@/lib/dropzones";
 import { fetchDropzoneForecast } from "@/lib/forecast";
 import Dashboard, { Freshness, Legend } from "./dashboard";
@@ -25,6 +26,12 @@ export default async function Home() {
           Live conditions + forecast for both dropzones
         </p>
         <Freshness generatedAt={generatedAt} />
+        <Link
+          href="/how-it-works"
+          className="mt-2 inline-block text-xs font-medium text-zinc-500 underline decoration-dotted underline-offset-4 hover:text-zinc-800 dark:hover:text-zinc-200"
+        >
+          How GO / CONSIDER / NO-GO works →
+        </Link>
       </header>
 
       <Dashboard forecasts={forecasts} todayISO={todayISO} />
