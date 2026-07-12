@@ -6,6 +6,7 @@ import type {
   DropzoneForecast,
   ForecastHour,
   HourStatus,
+  LiveConditions,
   Verdict,
 } from "@/lib/types";
 import { JUMP_FROM, LIMITS } from "@/lib/decision";
@@ -51,6 +52,7 @@ const LIMITER_TEXT: Record<NonNullable<ForecastHour["limiter"]>, string> = {
   rain: "rain",
   thunder: "thunderstorm",
   cloud: "solid cloud deck",
+  data: "incomplete weather data",
 };
 
 function dotTitle(h: ForecastHour): string {
@@ -114,7 +116,9 @@ function DzCard({
 }) {
   const { dz, days, error } = forecast;
   const d = days[day] ?? null;
-  const style = d ? VERDICT[d.verdict] : VERDICT["NO-GO"];
+  const showLive = day === 0;
+  const verdict = d ? effectiveVerdict(d.verdict, showLive ? forecast.live : null) : "NO-GO";
+  const style = VERDICT[verdict];
 
   return (
     <section
@@ -123,13 +127,16 @@ function DzCard({
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
         <div>
           <h2 className="text-lg font-semibold leading-tight">{dz.name}</h2>
-          <p className="text-sm text-zinc-500">{dz.place}</p>
+          <p className="text-sm text-zinc-500">
+            {dz.place}
+            {d && <span className="text-zinc-400"> · closes {pad(d.close)}</span>}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <span
             className={`rounded-lg px-3 py-1.5 text-sm font-bold tracking-wide ${style.badge}`}
           >
-            {d?.verdict ?? "NO DATA"}
+            {d ? verdict : "NO DATA"}
           </span>
           {/* The best window is always shown green (it's the good stretch);
               height is reserved so NO-GO/error never shifts the table. */}
@@ -140,7 +147,11 @@ function DzCard({
               </span>
             ) : d?.bestWindow ? (
               <span
-                className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                className={`rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                  d.bestWindow.quality === "clear"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                    : "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"
+                }`}
                 title={d.summary}
               >
                 {bestChanceLabel(d.bestWindow, d.close)}
@@ -150,19 +161,153 @@ function DzCard({
         </div>
       </div>
 
+      {showLive && (
+        <LiveConditionsPanel live={forecast.live} weatherUrl={dz.weatherUrl} />
+      )}
+
       {d && d.hours.length > 0 && <HourTable hours={d.hours} />}
 
       <div className="mt-auto border-t border-zinc-100 px-5 py-3 dark:border-zinc-800/70">
-        <a
-          href={dz.jumpUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:hover:text-zinc-200"
-        >
-          Check {dz.club} jump table →
-        </a>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <a
+            href={dz.jumpUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:hover:text-zinc-200"
+          >
+            {dz.weatherUrl === dz.jumpUrl ? "Open live Skyview" : "Check jump table"} →
+          </a>
+          {dz.weatherUrl !== dz.jumpUrl && (
+            <a
+              href={dz.weatherUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:hover:text-zinc-200"
+            >
+              Live DZ wind →
+            </a>
+          )}
+          <a
+            href="https://www.smhi.se/vader/radar-och-satellit/radar-med-blixt"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:hover:text-zinc-200"
+          >
+            Radar + lightning →
+          </a>
+        </div>
       </div>
     </section>
+  );
+}
+
+function effectiveVerdict(
+  forecast: Verdict,
+  live: LiveConditions | null,
+): Verdict {
+  if (!live || live.status === "go" || forecast === "NO-GO") return forecast;
+  // A bad current observation must prevent a green headline, but it should not
+  // erase a genuinely useful later window by claiming the entire day is NO-GO.
+  return "CONSIDER";
+}
+
+const LIVE_STYLE: Record<HourStatus, { badge: string; label: string }> = {
+  go: {
+    badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+    label: "GO NOW",
+  },
+  consider: {
+    badge: "bg-amber-100 text-amber-900 dark:bg-amber-400/15 dark:text-amber-300",
+    label: "WATCH NOW",
+  },
+  nogo: {
+    badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
+    label: "NO-GO NOW",
+  },
+};
+
+function LiveConditionsPanel({
+  live,
+  weatherUrl,
+}: {
+  live: LiveConditions;
+  weatherUrl: string;
+}) {
+  const [showFeet, setShowFeet] = useState(false);
+  const style = LIVE_STYLE[live.status];
+  const observed = live.observedAt
+    ? new Date(live.observedAt).toLocaleTimeString("en-GB", {
+        timeZone: "Europe/Stockholm",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const ceilingLabel = live.ceilingFt == null
+    ? null
+    : showFeet
+      ? `${live.ceilingFt.toLocaleString("en-US")} ft`
+      : `${Math.round((live.ceilingFt * 0.3048) / 10) * 10} m`;
+
+  return (
+    <div className="mx-4 mb-3 flex flex-col rounded-xl border border-zinc-200 bg-zinc-50/80 px-3.5 py-3 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[142px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`rounded-md px-2 py-1 text-[11px] font-bold tracking-wide ${style.badge}`}>
+            {style.label}
+          </span>
+          <span className="text-xs text-zinc-500">
+            {live.available
+              ? `${live.station} · ${live.stationDistanceKm} km away`
+              : live.onsiteGustMs != null
+                ? "Onsite gust only"
+                : "Live data unavailable"}
+          </span>
+        </div>
+        <span className="text-[11px] text-zinc-400">
+          {observed ? `Observed ${observed}` : "Check the DZ station"}
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
+        {live.windMs != null && (
+          <span><span className="text-zinc-400">Wind</span> {live.windMs.toFixed(1)} m/s</span>
+        )}
+        {live.gustMs != null && (
+          <span><span className="text-zinc-400">Gust</span> {live.gustMs.toFixed(1)} m/s</span>
+        )}
+        {ceilingLabel && (
+          <span>
+            <span className="text-zinc-400">Ceiling</span> {live.cloudCover}{" "}
+            <button
+              type="button"
+              onClick={() => setShowFeet((value) => !value)}
+              aria-label={`Ceiling ${ceilingLabel}. Show ${showFeet ? "metres" : "feet"}`}
+              title={`Click to show ${showFeet ? "metres" : "feet"}`}
+              className="rounded-sm font-medium underline decoration-dotted underline-offset-2 hover:text-zinc-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-500 dark:hover:text-zinc-200"
+            >
+              {ceilingLabel}
+            </button>
+          </span>
+        )}
+        {live.visibilityKm != null && (
+          <span><span className="text-zinc-400">Vis</span> {live.visibilityKm >= 9.6 ? "10+" : live.visibilityKm.toFixed(0)} km</span>
+        )}
+      </div>
+
+      {live.reasons.length > 0 && (
+        <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          {live.reasons.join(" · ")}
+        </p>
+      )}
+      <a
+        href={weatherUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-auto inline-block pt-1.5 text-[11px] font-medium text-zinc-400 underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
+      >
+        Compare with onsite wind →
+      </a>
+    </div>
   );
 }
 
@@ -195,7 +340,9 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
             // Jump-relevant cloud = the low/mid deck the plane must climb through.
             // Use it for both icon and %, so they match the verdict dot (total
             // cloud can disagree wildly with the low/mid layers in the data).
-            const deck = Math.max(h.cloudLow, h.cloudMid);
+            const deck = h.cloudUncertain
+              ? h.cloudTotal
+              : Math.max(h.cloudLow, h.cloudMid);
             const Sky = h.thunder ? BoltIcon : skyIconFor(deck, h.precipMmH);
             return (
               <tr
@@ -209,8 +356,11 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                   {/* Fixed-width row so every icon lands on the same vertical line. */}
                   <div className="flex w-16 items-center gap-2">
                     <Sky className="h-5 w-5 shrink-0" />
-                    <span className="text-xs tabular-nums text-zinc-400">
-                      {deck}%
+                    <span
+                      className={`text-xs tabular-nums ${h.cloudUncertain ? "font-medium text-amber-600 dark:text-amber-400" : "text-zinc-400"}`}
+                      title={h.cloudUncertain ? "Cloud sources disagree; treating as uncertain" : undefined}
+                    >
+                      {h.cloudUncertain ? "≈" : ""}{deck}%
                     </span>
                   </div>
                 </td>
@@ -280,9 +430,13 @@ function RainCell({ h }: { h: ForecastHour }) {
 const pad = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 // "All day" when the good run covers the whole jumping window, else the range.
-function bestChanceLabel(w: { from: number; to: number }, close: number): string {
+function bestChanceLabel(
+  w: { from: number; to: number; quality: "clear" | "marginal" },
+  close: number,
+): string {
   if (w.from <= JUMP_FROM && w.to >= close) return "All day";
-  return `${pad(w.from)}–${pad(w.to)}`;
+  const range = `${pad(w.from)}–${pad(w.to)}`;
+  return w.quality === "marginal" ? `Marginal ${range}` : range;
 }
 
 // Shows how fresh the forecast is and auto-refreshes past a staleness threshold
@@ -319,7 +473,7 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
           stale ? "bg-amber-400" : "bg-emerald-500"
         }`}
       />
-      Forecast updated {label}
+      Weather checked {label}
     </div>
   );
 }
@@ -327,10 +481,10 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
 export function Legend() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
-      From {pad(JUMP_FROM)}{" "}to each DZ&apos;s close (Aros 20:00; Gryttjom 20:00,
-      18:00 weekends) · forecast only (check the jump table + radar for actual
-      ops). NO-GO needs wind &gt; {LIMITS.windMax} m/s,
-      gust &gt; {LIMITS.gustMax} m/s, steady rain &gt; {LIMITS.rainMax} mm/h,
+      Live aviation observations temper today&apos;s outlook; hourly rows are the
+      remaining forecast from {pad(JUMP_FROM)} to closing. Conflicting or missing
+      cloud data never scores GO. NO-GO needs wind &gt; {LIMITS.windMax} m/s,
+      gust &gt; {LIMITS.gustMax} m/s (or a turbulent gust spread), steady rain &gt; {LIMITS.rainMax} mm/h,
       thunder (⚡), or solid low/mid cloud. A shower chance only dials it down to
       CONSIDER — scattered cells leave holes to jump.
     </p>

@@ -2,8 +2,8 @@ import { DROPZONES } from "@/lib/dropzones";
 import { fetchDropzoneForecast } from "@/lib/forecast";
 import Dashboard, { Freshness, Legend } from "./dashboard";
 
-// Render per request so the day labels and freshness reflect the current time;
-// the Open-Meteo fetch itself is cached 15 min (see lib/forecast.ts).
+// Render per request so current observations, remaining hours and freshness
+// reflect the wall clock. Individual upstream fetches keep short source caches.
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
@@ -17,7 +17,7 @@ export default async function Home() {
           Let&apos;s jump
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Forecast-based GO / CONSIDER / NO-GO for both dropzones
+          Live conditions + forecast for both dropzones
         </p>
         <Freshness generatedAt={generatedAt} />
       </header>

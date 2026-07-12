@@ -2,7 +2,7 @@
 
 # 🪂 Let's jump
 
-**Forecast-based GO / CONSIDER / NO-GO for two Swedish dropzones.**
+**Live conditions + forecast-based GO / CONSIDER / NO-GO for two Swedish dropzones.**
 
 <a href="#quick-start">Quick start</a> ·
 <a href="#how-it-works">How it works</a> ·
@@ -12,16 +12,16 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 
-<img src="docs/screenshot.png" alt="Let's jump — forecast-based GO / CONSIDER / NO-GO for FK Aros and Skydive Stockholm" width="820" />
+<img src="docs/screenshot.png" alt="Let's jump — live conditions and forecast for FK Aros and Skydive Stockholm" width="820" />
 
 </div>
 
-"Should I drive ~70 min to the dropzone?" — one page that turns the forecast into
-a **GO / CONSIDER / NO-GO** verdict for **FK Aros** (Västerås) and **Skydive
+"Should I drive ~70 min to the dropzone?" — one page that combines current
+observations with a **GO / CONSIDER / NO-GO** forecast for **FK Aros** (Västerås) and **Skydive
 Stockholm** (Gryttjom), for today and tomorrow. Wind, gusts, rain, cloud and
 thunder, scored hour-by-hour over the 09:00–21:00 window.
 
-Forecast only — always confirm actual ops on each club's jump table.
+Decision aid only — always confirm actual ops and conditions at the DZ.
 
 ## Quick start
 
@@ -46,20 +46,25 @@ npm install && npm run dev    # → http://localhost:3000
 
 ## How it works
 
-Everything runs server-side, in three steps:
+Everything runs server-side, in four steps:
 
-1. **Fetch.** Pull the hourly forecast from [Open-Meteo](https://open-meteo.com)
-   for each airfield's exact coordinates, using the 1 km MET Nordic model where
-   available (the most accurate for Scandinavia).
-2. **Score each hour.** Every hour in the 09:00–21:00 window is rated
+1. **Observe now.** Pull the latest aviation observation from ESOW for Aros and
+   ESCM as regional context for Gryttjom. Gryttjom's public weather page also
+   supplies its onsite maximum gust over the last 30 minutes. The source and
+   distance are shown, and both cards link to the DZ's live wind page.
+2. **Fetch the outlook.** Pull the hourly forecast from
+   [Open-Meteo](https://open-meteo.com) for each airfield's coordinates, using
+   MET Nordic where available and best-match fields for the rest.
+3. **Score each remaining hour.** Every hour from now until closing is rated
    go / consider / no-go on the *worst* of five factors: wind, gusts, rain,
    thunder, and cloud.
-3. **Roll up the day.** Those hours become one verdict per dropzone, plus the
-   best window to jump.
+4. **Reconcile.** Live wind, visibility and aviation ceiling can only downgrade
+   today's headline. Contradictory or incomplete forecast fields never score GO.
+   The remaining hours become one outlook per dropzone, plus the best window.
 
 | Verdict | What it means |
 |---|---|
-| 🟢 **GO** | A solid block of clear hours in the window |
+| 🟢 **GO** | Live conditions and a solid forecast window are within limits |
 | 🟡 **CONSIDER** | Jumpable but unsettled: showers possible, go early or watch the radar |
 | 🔴 **NO-GO** | A real stopper all day |
 
@@ -68,8 +73,10 @@ while a cell dumps rain a few kilometres away, so the engine also weighs rain
 *probability* and atmospheric instability (CAPE), not just millimetres. It also
 matches how jumpers actually behave: a shower *chance* only drops a day to
 CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
-solid cloud deck are the real NO-GO. All the thresholds live in `LIMITS`
+solid cloud deck are the real NO-GO. An unexplained total-cloud/low-cloud
+disagreement is marked uncertain instead of silently becoming green. Gust spread
+is scored as a turbulence signal, not just the absolute maximum. All the thresholds live in `LIMITS`
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
 days.
 
-<sub>Data © <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0). Not an operational authority — check the radar before driving.</sub>
+<sub>Forecast data © <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0). Live aviation observations via <a href="https://aviationweather.gov/data/api/">AviationWeather.gov</a>; onsite gust via Skydive Stockholm. Not an operational authority — check the jump table, onsite wind and <a href="https://www.smhi.se/vader/radar-och-satellit/radar-med-blixt">SMHI radar + lightning</a>.</sub>

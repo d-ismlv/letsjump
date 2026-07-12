@@ -21,6 +21,10 @@ export const LIMITS = {
   windMax: 11,
   gustGood: 11,
   gustMax: 14,
+  // A large gap between sustained wind and the hourly maximum gust is a useful
+  // turbulence signal even when the absolute gust remains below the hard limit.
+  gustSpreadGood: 4,
+  gustSpreadMax: 7,
   // Rain AMOUNT (mm/h). Scattered showers you can jump around ("holes"); it's
   // steady rain sitting over the DZ that actually stops the day.
   rainGood: 0.2, // dry enough
@@ -57,6 +61,9 @@ type Sample = {
   cape: number;
   cloudLow: number;
   cloudMid: number;
+  cloudHigh: number;
+  cloudTotal: number;
+  dataComplete: boolean;
 };
 
 // Is this hour at risk of thunder / convective showers? These are jumping-stoppers
@@ -76,8 +83,19 @@ export function rateHour(s: Sample): {
   status: HourStatus;
   limiter: Limiter;
   thunder: boolean;
+  cloudUncertain: boolean;
 } {
   const thunder = isThunder(s);
+
+  // Best-match can combine fields from different models. If the total/WMO sky
+  // says overcast while every layer says mostly clear, that is uncertainty — not
+  // permission to paint the hour green. High-only cloud remains harmless.
+  const deck = Math.max(s.cloudLow, s.cloudMid);
+  const cloudUncertain =
+    s.cloudTotal >= 80 &&
+    s.weatherCode === 3 &&
+    deck <= LIMITS.cloudGoodLow &&
+    s.cloudHigh < 60;
 
   // Rain factor: NO-GO only comes from steady rain (amount), thunder, or a violent
   // shower. Probability and ordinary showers cap out at CONSIDER — you can still
@@ -98,15 +116,29 @@ export function rateHour(s: Sample): {
 
   const factors: { key: Exclude<Limiter, null>; status: HourStatus }[] = [
     { key: "wind", status: band(s.windMs, LIMITS.windGood, LIMITS.windMax) },
-    { key: "gust", status: band(s.gustMs, LIMITS.gustGood, LIMITS.gustMax) },
+    {
+      key: "gust",
+      status: worst(
+        band(s.gustMs, LIMITS.gustGood, LIMITS.gustMax),
+        band(
+          Math.max(0, s.gustMs - s.windMs),
+          LIMITS.gustSpreadGood,
+          LIMITS.gustSpreadMax,
+        ),
+      ),
+    },
     { key: thunder ? "thunder" : "rain", status: rainStatus },
     {
       key: "cloud",
       status: worst(
-        band(s.cloudLow, LIMITS.cloudGoodLow, LIMITS.cloudMaxLow),
-        band(s.cloudMid, LIMITS.cloudGoodMid, LIMITS.cloudMaxMid),
+        cloudUncertain ? "consider" : "go",
+        worst(
+          band(s.cloudLow, LIMITS.cloudGoodLow, LIMITS.cloudMaxLow),
+          band(s.cloudMid, LIMITS.cloudGoodMid, LIMITS.cloudMaxMid),
+        ),
       ),
     },
+    { key: "data", status: s.dataComplete ? "go" : "consider" },
   ];
 
   let status: HourStatus = "go";
@@ -118,7 +150,7 @@ export function rateHour(s: Sample): {
       limiter = f.key;
     }
   }
-  return { status, limiter, thunder };
+  return { status, limiter, thunder, cloudUncertain };
 }
 
 // value below `good` = go, below `max` = consider, else nogo.
@@ -139,6 +171,7 @@ const LIMITER_LABEL: Record<Exclude<Limiter, null>, string> = {
   rain: "rain",
   thunder: "thunderstorms",
   cloud: "cloud",
+  data: "weather data",
 };
 
 // Roll up a day's jumping-window hours into one verdict + summary + best window.
@@ -179,13 +212,19 @@ export function rateDay(
   // day gets called for low interest.
   const lateStart = meta.close - LATE_MARGIN;
   const firstGo = hours.find((h) => h.status === "go");
-  const eveningOnly = firstGo != null && firstGo.hour >= lateStart;
+  const eveningOnly =
+    bestGo.len >= 2 && firstGo != null && firstGo.hour >= lateStart;
   if (eveningOnly && verdict === "GO") verdict = "CONSIDER";
 
   // Best window = longest clean-air run, falling back to the longest non-nogo run.
-  const runForWindow = bestGo.len >= 2 ? bestGo : bestOk.len >= 2 ? bestOk : null;
+  const clearWindow = bestGo.len >= 2;
+  const runForWindow = clearWindow ? bestGo : bestOk.len >= 2 ? bestOk : null;
   const bestWindow = runForWindow
-    ? { from: hours[runForWindow.start].hour, to: hours[runForWindow.end].hour }
+    ? {
+        from: hours[runForWindow.start].hour,
+        to: hours[runForWindow.end].hour,
+        quality: clearWindow ? "clear" as const : "marginal" as const,
+      }
     : null;
 
   return {
@@ -200,7 +239,7 @@ export function rateDay(
 function summarise(
   hours: ForecastHour[],
   verdict: Verdict,
-  bestWindow: { from: number; to: number } | null,
+  bestWindow: { from: number; to: number; quality: "clear" | "marginal" } | null,
   stormy: boolean,
   eveningOnly: boolean,
 ): string {

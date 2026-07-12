@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Let's jump",
   description:
-    "Forecast-based GO / CONSIDER / NO-GO for FK Aros and Skydive Stockholm.",
+    "Live conditions and forecast-based GO / CONSIDER / NO-GO for FK Aros and Skydive Stockholm.",
 };
 
 export default function RootLayout({

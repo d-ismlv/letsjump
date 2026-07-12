@@ -5,6 +5,7 @@ import type {
   ForecastHour,
 } from "./types";
 import { JUMP_FROM, rateDay, rateHour } from "./decision";
+import { fetchLiveConditions } from "./live-weather";
 
 const HOURLY = [
   "wind_speed_10m",
@@ -27,12 +28,13 @@ const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday
 export async function fetchDropzoneForecast(
   dz: Dropzone,
 ): Promise<DropzoneForecast> {
+  const livePromise = fetchLiveConditions(dz);
   const params = new URLSearchParams({
     latitude: String(dz.lat),
     longitude: String(dz.lon),
     hourly: HOURLY.join(","),
-    // best_match blends in MET Nordic (1 km) over Scandinavia — highest
-    // resolution available for these fields.
+    // best_match uses MET Nordic where a field is available and falls back to
+    // other models for fields such as layered cloud and CAPE.
     models: "best_match",
     wind_speed_unit: "ms",
     timezone: "Europe/Stockholm",
@@ -52,7 +54,12 @@ export async function fetchDropzoneForecast(
     if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
     data = await res.json();
   } catch (err) {
-    return { dz, days: [], error: err instanceof Error ? err.message : String(err) };
+    return {
+      dz,
+      days: [],
+      live: await livePromise,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 
   // Last operating hour for this DZ on a given local date (weekends differ).
@@ -62,6 +69,18 @@ export async function fetchDropzoneForecast(
     return weekend ? dz.closeWeekend : dz.closeWeekday;
   };
 
+  const now = new Date();
+  const todayISO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Stockholm",
+  }).format(now);
+  const currentHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Stockholm",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(now),
+  );
+
   const h = data.hourly;
   // Group jumping-window hours by local date.
   const byDate = new Map<string, ForecastHour[]>();
@@ -69,7 +88,25 @@ export async function fetchDropzoneForecast(
     const iso = h.time[i]; // "2026-07-06T09:00" (already Europe/Stockholm)
     const date = iso.slice(0, 10);
     const hour = Number(iso.slice(11, 13));
-    if (hour < JUMP_FROM || hour > closeFor(date)) continue;
+    if (
+      hour < JUMP_FROM ||
+      hour > closeFor(date) ||
+      (date === todayISO && hour < currentHour)
+    ) continue;
+
+    const values = [
+      h.wind_speed_10m[i],
+      h.wind_gusts_10m[i],
+      h.precipitation[i],
+      h.precipitation_probability?.[i],
+      h.weather_code?.[i],
+      h.cape?.[i],
+      h.cloud_cover_low[i],
+      h.cloud_cover_mid[i],
+      h.cloud_cover_high[i],
+      h.cloud_cover[i],
+    ];
+    const dataComplete = values.every(Number.isFinite);
 
     const sample = {
       windMs: h.wind_speed_10m[i] ?? 0,
@@ -80,8 +117,11 @@ export async function fetchDropzoneForecast(
       cape: h.cape?.[i] ?? 0,
       cloudLow: h.cloud_cover_low[i] ?? 0,
       cloudMid: h.cloud_cover_mid[i] ?? 0,
+      cloudHigh: h.cloud_cover_high[i] ?? 0,
+      cloudTotal: h.cloud_cover[i] ?? 0,
+      dataComplete,
     };
-    const { status, limiter, thunder } = rateHour(sample);
+    const { status, limiter, thunder, cloudUncertain } = rateHour(sample);
 
     const row: ForecastHour = {
       time: iso,
@@ -96,8 +136,10 @@ export async function fetchDropzoneForecast(
       thunder,
       cloudLow: sample.cloudLow,
       cloudMid: sample.cloudMid,
-      cloudHigh: h.cloud_cover_high[i] ?? 0,
-      cloudTotal: h.cloud_cover[i] ?? 0,
+      cloudHigh: sample.cloudHigh,
+      cloudTotal: sample.cloudTotal,
+      cloudUncertain,
+      dataComplete,
       status,
       limiter,
     };
@@ -105,12 +147,6 @@ export async function fetchDropzoneForecast(
     list.push(row);
     byDate.set(date, list);
   }
-
-  // Compute "today" from the wall clock at render time (not fetch time) so the
-  // day labels roll over at local midnight regardless of the cached fetch.
-  const todayISO = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Stockholm",
-  }).format(new Date());
 
   const dates = [...byDate.keys()].sort().filter((d) => d >= todayISO);
   const days: DayForecast[] = dates.slice(0, 2).map((date) => {
@@ -131,5 +167,5 @@ export async function fetchDropzoneForecast(
     });
   });
 
-  return { dz, days, error: null };
+  return { dz, days, live: await livePromise, error: null };
 }
