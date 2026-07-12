@@ -59,6 +59,10 @@ function dotTitle(h: ForecastHour): string {
   const verdict = { go: "GO", consider: "CONSIDER", nogo: "NO-GO" }[h.status];
   if (!h.limiter) return `${verdict}: within limits`;
   if (h.limiter === "gust") {
+    const spread = Math.max(0, h.gustMs - h.windMs);
+    if (spread > LIMITS.gustSpreadGood) {
+      return `${verdict}: gust spread ${spread.toFixed(1)} m/s ${h.status === "nogo" ? "is too high" : "is unsettled"}`;
+    }
     return `${verdict}: ${h.status === "nogo" ? "gusts over limit" : "gusts close to limit"}`;
   }
   return `${verdict}: ${LIMITER_TEXT[h.limiter]}`;

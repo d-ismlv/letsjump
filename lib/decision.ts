@@ -17,14 +17,14 @@ export const LATE_MARGIN = 3;
 // Thresholds for a licensed (B/C/D) sport jumper. Tune here.
 // Wind/gust in m/s, rain in mm/h, cloud in % cover.
 export const LIMITS = {
-  windGood: 8,
+  windGood: 9,
   windMax: 11,
-  gustGood: 8.5,
+  gustGood: 11,
   gustMax: 14,
   // A large gap between sustained wind and the hourly maximum gust is a useful
   // turbulence signal even when the absolute gust remains below the hard limit.
-  gustSpreadGood: 4,
-  gustSpreadMax: 7,
+  gustSpreadGood: 3,
+  gustSpreadMax: 5,
   // Rain AMOUNT (mm/h). Scattered showers you can jump around ("holes"); it's
   // steady rain sitting over the DZ that actually stops the day.
   rainGood: 0.2, // dry enough

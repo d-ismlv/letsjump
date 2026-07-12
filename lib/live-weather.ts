@@ -66,6 +66,8 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
 
   const windMs = finite(metar.wspd) ? knotsToMs(metar.wspd) : null;
   const metarGustMs = finite(metar.wgst) ? knotsToMs(metar.wgst) : null;
+  const gustComesFromOnsite =
+    onsiteGustMs != null && (metarGustMs == null || onsiteGustMs >= metarGustMs);
   const gustMs = maxNullable(metarGustMs, onsiteGustMs);
   const ceilingFt = lowestCeiling(metar.clouds);
   let status: HourStatus = "go";
@@ -83,6 +85,17 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     status = worst(status, s);
     if (s !== "go") {
       reasons.push(s === "consider" ? "Max gust close to limit" : "Max gust over limit");
+    }
+  }
+  // Only compare values measured at the same station. Gryttjom's onsite gust
+  // and ESCM's mean wind are useful separately, but their difference is not a
+  // meaningful gust spread across 44 km.
+  if (!gustComesFromOnsite && windMs != null && metarGustMs != null) {
+    const spread = Math.max(0, metarGustMs - windMs);
+    const s = band(spread, LIMITS.gustSpreadGood, LIMITS.gustSpreadMax);
+    status = worst(status, s);
+    if (s !== "go") {
+      reasons.push(s === "consider" ? "Gust spread is unsettled" : "Gust spread is too high");
     }
   }
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🪂 Let's jump
+# 🪂&ensp;Let&apos;s jump
 
 **Live conditions + forecast-based GO / CONSIDER / NO-GO for two Swedish dropzones.**
 
@@ -74,8 +74,10 @@ while a cell dumps rain a few kilometres away, so the engine also weighs rain
 matches how jumpers actually behave: a shower *chance* only drops a day to
 CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
 solid cloud deck are the real NO-GO. An unexplained total-cloud/low-cloud
-disagreement is marked uncertain instead of silently becoming green. Gust spread
-is scored as a turbulence signal, not just the absolute maximum. All the thresholds live in `LIMITS`
+disagreement is marked uncertain instead of silently becoming green. Steady wind
+and gusts are scored separately from gust spread: 8–9 m/s can remain green when
+steady, while a large jump from mean wind to the peak is treated as a turbulence
+signal. All the thresholds live in `LIMITS`
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
 days.
 
