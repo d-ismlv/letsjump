@@ -19,7 +19,7 @@ export const LATE_MARGIN = 3;
 export const LIMITS = {
   windGood: 8,
   windMax: 11,
-  gustGood: 11,
+  gustGood: 8.5,
   gustMax: 14,
   // A large gap between sustained wind and the hourly maximum gust is a useful
   // turbulence signal even when the absolute gust remains below the hard limit.

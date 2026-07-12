@@ -1,15 +1,3 @@
-<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="7" fill="#10b981" />
-  <!-- canopy -->
-  <path d="M5 15a11 8.5 0 0 1 22 0Z" fill="#ffffff" />
-  <!-- canopy gores -->
-  <g stroke="#10b981" stroke-width="1" stroke-linecap="round">
-    <path d="M16 6.7V15M10 8.6l3.2 6.4M22 8.6l-3.2 6.4" />
-  </g>
-  <!-- suspension lines + jumper -->
-  <g stroke="#ffffff" stroke-width="1.1" stroke-linecap="round">
-    <path d="M5.4 15l10 6M16 15v6M26.6 15l-10 6" />
-    <path d="M16 22.4v3.2M16 23.6l-2.1 1.8M16 23.6l2.1 1.8" />
-  </g>
-  <circle cx="16" cy="21.4" r="1.5" fill="#ffffff" />
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <text x="32" y="52" text-anchor="middle" font-size="54" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">🪂</text>
 </svg>

@@ -50,18 +50,17 @@ export type Limiter =
 
 export type LiveConditions = {
   status: HourStatus;
+  dataState: "fresh" | "partial" | "stale" | "unavailable";
   observedAt: string | null;
   windMs: number | null;
   gustMs: number | null;
   bearingDeg: number | null;
-  visibilityKm: number | null;
   ceilingFt: number | null;
   cloudCover: string | null;
   station: string;
   stationDistanceKm: number;
   onsiteGustMs: number | null;
   reasons: string[];
-  available: boolean;
 };
 
 export type DayForecast = {

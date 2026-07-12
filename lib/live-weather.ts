@@ -7,7 +7,6 @@ type Metar = {
   wdir?: number;
   wspd?: number;
   wgst?: number;
-  visib?: string | number;
   cover?: string;
   clouds?: MetarCloud[];
 };
@@ -24,18 +23,17 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
 
   const fallback: LiveConditions = {
     status: "consider",
+    dataState: onsiteGustMs == null ? "unavailable" : "partial",
     observedAt: null,
     windMs: null,
-    gustMs: null,
+    gustMs: onsiteGustMs,
     bearingDeg: null,
-    visibilityKm: null,
     ceilingFt: null,
     cloudCover: null,
     station: dz.metarStation,
     stationDistanceKm: dz.metarDistanceKm,
     onsiteGustMs,
     reasons: ["Live observation unavailable"],
-    available: onsiteGustMs != null,
   };
 
   if (!metar) {
@@ -44,12 +42,14 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     return {
       ...fallback,
       status: worst("consider", gustStatus),
+      dataState: "partial",
       observedAt: new Date().toISOString(),
       reasons: [
         "Aviation observation unavailable",
-        ...(gustStatus === "go" ? [] : [`Onsite gust ${onsiteGustMs.toFixed(1)} m/s`]),
+        ...(gustStatus === "go"
+          ? []
+          : [gustStatus === "consider" ? "Max gust close to limit" : "Max gust over limit"]),
       ],
-      available: false,
     };
   }
 
@@ -58,6 +58,7 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   if (ageMs > 90 * 60 * 1000) {
     return {
       ...fallback,
+      dataState: onsiteGustMs == null ? "stale" : "partial",
       observedAt,
       reasons: ["Live aviation observation is stale"],
     };
@@ -66,7 +67,6 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const windMs = finite(metar.wspd) ? knotsToMs(metar.wspd) : null;
   const metarGustMs = finite(metar.wgst) ? knotsToMs(metar.wgst) : null;
   const gustMs = maxNullable(metarGustMs, onsiteGustMs);
-  const visibilityKm = parseVisibilityKm(metar.visib);
   const ceilingFt = lowestCeiling(metar.clouds);
   let status: HourStatus = "go";
   const reasons: string[] = [];
@@ -74,18 +74,16 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   if (windMs != null) {
     const s = band(windMs, LIMITS.windGood, LIMITS.windMax);
     status = worst(status, s);
-    if (s !== "go") reasons.push(`Wind ${windMs.toFixed(1)} m/s`);
+    if (s !== "go") {
+      reasons.push(s === "consider" ? "Mean wind close to limit" : "Mean wind over limit");
+    }
   }
   if (gustMs != null) {
     const s = band(gustMs, LIMITS.gustGood, LIMITS.gustMax);
     status = worst(status, s);
-    if (s !== "go") reasons.push(`Gust ${gustMs.toFixed(1)} m/s`);
-  }
-
-  if (visibilityKm != null && visibilityKm < 10) {
-    const s: HourStatus = visibilityKm < 5 ? "nogo" : "consider";
-    status = worst(status, contextual(dz, s));
-    reasons.push(`Visibility ${visibilityKm.toFixed(0)} km`);
+    if (s !== "go") {
+      reasons.push(s === "consider" ? "Max gust close to limit" : "Max gust over limit");
+    }
   }
 
   if (ceilingFt != null && ceilingFt <= 8_000) {
@@ -96,18 +94,17 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
 
   return {
     status,
+    dataState: "fresh",
     observedAt,
     windMs,
     gustMs,
     bearingDeg: finite(metar.wdir) ? metar.wdir : null,
-    visibilityKm,
     ceilingFt,
     cloudCover: metar.cover ?? null,
     station: dz.metarStation,
     stationDistanceKm: dz.metarDistanceKm,
     onsiteGustMs,
     reasons,
-    available: true,
   };
 }
 
@@ -159,15 +156,6 @@ function lowestCeiling(clouds: MetarCloud[] | undefined): number | null {
     .filter((c) => (c.cover === "BKN" || c.cover === "OVC") && finite(c.base))
     .map((c) => c.base as number);
   return bases.length ? Math.min(...bases) : null;
-}
-
-function parseVisibilityKm(value: Metar["visib"]): number | null {
-  if (value == null) return null;
-  const miles = typeof value === "number" ? value : Number.parseFloat(value);
-  if (!Number.isFinite(miles)) return null;
-  // AWC encodes the METAR 9999 (10 km or more) value as "6+" statute miles.
-  if (typeof value === "string" && value.includes("+") && miles >= 6) return 10;
-  return miles * 1.60934;
 }
 
 function maxNullable(a: number | null, b: number | null): number | null {

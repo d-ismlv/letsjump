@@ -14,7 +14,7 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
       <header className="mb-8 text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Let&apos;s jump
+          <span aria-hidden="true">🪂</span> Let&apos;s jump
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
           Live conditions + forecast for both dropzones

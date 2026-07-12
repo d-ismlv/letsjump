@@ -48,7 +48,7 @@ const STATUS_DOT: Record<HourStatus, string> = {
 // Short reason per limiting factor, shown on hover of the status dot.
 const LIMITER_TEXT: Record<NonNullable<ForecastHour["limiter"]>, string> = {
   wind: "wind over limit",
-  gust: "gusts over limit",
+  gust: "gusts",
   rain: "rain",
   thunder: "thunderstorm",
   cloud: "solid cloud deck",
@@ -58,6 +58,9 @@ const LIMITER_TEXT: Record<NonNullable<ForecastHour["limiter"]>, string> = {
 function dotTitle(h: ForecastHour): string {
   const verdict = { go: "GO", consider: "CONSIDER", nogo: "NO-GO" }[h.status];
   if (!h.limiter) return `${verdict}: within limits`;
+  if (h.limiter === "gust") {
+    return `${verdict}: ${h.status === "nogo" ? "gusts over limit" : "gusts close to limit"}`;
+  }
   return `${verdict}: ${LIMITER_TEXT[h.limiter]}`;
 }
 
@@ -127,10 +130,12 @@ function DzCard({
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
         <div>
           <h2 className="text-lg font-semibold leading-tight">{dz.name}</h2>
-          <p className="text-sm text-zinc-500">
-            {dz.place}
-            {d && <span className="text-zinc-400"> · closes {pad(d.close)}</span>}
-          </p>
+          <p className="text-sm text-zinc-500">{dz.place}</p>
+          {d && (
+            <p className="whitespace-nowrap text-xs text-zinc-400">
+              Closes {pad(d.close)}
+            </p>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <span
@@ -162,7 +167,7 @@ function DzCard({
       </div>
 
       {showLive && (
-        <LiveConditionsPanel live={forecast.live} weatherUrl={dz.weatherUrl} />
+        <LiveConditionsPanel live={forecast.live} />
       )}
 
       {d && d.hours.length > 0 && <HourTable hours={d.hours} />}
@@ -228,10 +233,8 @@ const LIVE_STYLE: Record<HourStatus, { badge: string; label: string }> = {
 
 function LiveConditionsPanel({
   live,
-  weatherUrl,
 }: {
   live: LiveConditions;
-  weatherUrl: string;
 }) {
   const [showFeet, setShowFeet] = useState(false);
   const style = LIVE_STYLE[live.status];
@@ -242,6 +245,30 @@ function LiveConditionsPanel({
         minute: "2-digit",
       })
     : null;
+  const retrievalLabel =
+    live.dataState === "fresh"
+      ? observed
+        ? `Observed ${observed}`
+        : "Observed"
+      : live.dataState === "partial"
+        ? "Partial data"
+        : live.dataState === "stale"
+          ? observed
+            ? `Stale · ${observed}`
+            : "Stale data"
+          : "Data unavailable";
+  const sourceLabel =
+    live.dataState === "partial"
+      ? "Onsite gust only"
+      : live.dataState === "unavailable"
+        ? `${live.station} unavailable`
+        : `${live.station} · ${live.stationDistanceKm} km away`;
+  const conditionNote =
+    live.reasons.length > 0
+      ? live.reasons.join(" · ")
+      : live.dataState === "fresh"
+        ? "Live values within limits"
+        : "Current measurements unavailable";
   const ceilingLabel = live.ceilingFt == null
     ? null
     : showFeet
@@ -249,34 +276,30 @@ function LiveConditionsPanel({
       : `${Math.round((live.ceilingFt * 0.3048) / 10) * 10} m`;
 
   return (
-    <div className="mx-4 mb-3 flex flex-col rounded-xl border border-zinc-200 bg-zinc-50/80 px-3.5 py-3 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[142px]">
+    <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[96px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className={`rounded-md px-2 py-1 text-[11px] font-bold tracking-wide ${style.badge}`}>
             {style.label}
           </span>
           <span className="text-xs text-zinc-500">
-            {live.available
-              ? `${live.station} · ${live.stationDistanceKm} km away`
-              : live.onsiteGustMs != null
-                ? "Onsite gust only"
-                : "Live data unavailable"}
+            {sourceLabel}
           </span>
         </div>
         <span className="text-[11px] text-zinc-400">
-          {observed ? `Observed ${observed}` : "Check the DZ station"}
+          {retrievalLabel}
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
+      <div className="mt-2 grid grid-cols-3 gap-x-2 text-xs tabular-nums">
         {live.windMs != null && (
-          <span><span className="text-zinc-400">Wind</span> {live.windMs.toFixed(1)} m/s</span>
+          <span className="col-start-1 whitespace-nowrap"><span className="text-zinc-400">Mean wind</span> {live.windMs.toFixed(1)} m/s</span>
         )}
         {live.gustMs != null && (
-          <span><span className="text-zinc-400">Gust</span> {live.gustMs.toFixed(1)} m/s</span>
+          <span className="col-start-2 whitespace-nowrap"><span className="text-zinc-400">Max gust</span> {live.gustMs.toFixed(1)} m/s</span>
         )}
         {ceilingLabel && (
-          <span>
+          <span className="col-start-3 whitespace-nowrap">
             <span className="text-zinc-400">Ceiling</span> {live.cloudCover}{" "}
             <button
               type="button"
@@ -289,24 +312,11 @@ function LiveConditionsPanel({
             </button>
           </span>
         )}
-        {live.visibilityKm != null && (
-          <span><span className="text-zinc-400">Vis</span> {live.visibilityKm >= 9.6 ? "10+" : live.visibilityKm.toFixed(0)} km</span>
-        )}
       </div>
 
-      {live.reasons.length > 0 && (
-        <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-          {live.reasons.join(" · ")}
-        </p>
-      )}
-      <a
-        href={weatherUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-auto inline-block pt-1.5 text-[11px] font-medium text-zinc-400 underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-200"
-      >
-        Compare with onsite wind →
-      </a>
+      <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 lg:truncate" title={conditionNote}>
+        {conditionNote}
+      </p>
     </div>
   );
 }
@@ -357,10 +367,11 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                   <div className="flex w-16 items-center gap-2">
                     <Sky className="h-5 w-5 shrink-0" />
                     <span
-                      className={`text-xs tabular-nums ${h.cloudUncertain ? "font-medium text-amber-600 dark:text-amber-400" : "text-zinc-400"}`}
+                      className={`text-xs tabular-nums ${h.cloudUncertain ? "font-medium text-zinc-500 dark:text-zinc-300" : "text-zinc-400"}`}
                       title={h.cloudUncertain ? "Cloud sources disagree; treating as uncertain" : undefined}
+                      aria-label={h.cloudUncertain ? `${deck}% cloud; forecast sources disagree` : `${deck}% cloud`}
                     >
-                      {h.cloudUncertain ? "≈" : ""}{deck}%
+                      {deck}%
                     </span>
                   </div>
                 </td>
@@ -377,7 +388,7 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                   </span>
                 </td>
                 <td className="py-2 text-center tabular-nums text-zinc-500">
-                  {h.gustMs.toFixed(0)}
+                  {h.gustMs.toFixed(1)}
                 </td>
                 <td className="py-2 pl-1 pr-2 text-center">
                   <RainCell h={h} />
