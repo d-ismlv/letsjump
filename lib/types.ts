@@ -7,7 +7,7 @@ export type Dropzone = {
   place: string; // town / field
   lat: number;
   lon: number;
-  jumpUrl: string; // where to check the jump table / manifest
+  skyviewUrl: string; // DZ's Skyview page
   weatherUrl: string; // DZ's own live wind/weather page
   metarStation: string; // nearest useful aviation observation
   metarDistanceKm: number; // distance from DZ; controls observation confidence

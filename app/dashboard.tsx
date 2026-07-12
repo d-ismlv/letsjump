@@ -147,7 +147,7 @@ function DzCard({
               </span>
             ) : d?.bestWindow ? (
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
                   d.bestWindow.quality === "clear"
                     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                     : "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"
@@ -170,14 +170,14 @@ function DzCard({
       <div className="mt-auto border-t border-zinc-100 px-5 py-3 dark:border-zinc-800/70">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <a
-            href={dz.jumpUrl}
+            href={dz.skyviewUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline dark:hover:text-zinc-200"
           >
-            {dz.weatherUrl === dz.jumpUrl ? "Open live Skyview" : "Check jump table"} →
+            Open Skyview →
           </a>
-          {dz.weatherUrl !== dz.jumpUrl && (
+          {dz.weatherUrl !== dz.skyviewUrl && (
             <a
               href={dz.weatherUrl}
               target="_blank"

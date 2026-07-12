@@ -79,4 +79,4 @@ is scored as a turbulence signal, not just the absolute maximum. All the thresho
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump
 days.
 
-<sub>Forecast data © <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0). Live aviation observations via <a href="https://aviationweather.gov/data/api/">AviationWeather.gov</a>; onsite gust via Skydive Stockholm. Not an operational authority — check the jump table, onsite wind and <a href="https://www.smhi.se/vader/radar-och-satellit/radar-med-blixt">SMHI radar + lightning</a>.</sub>
+<sub>Forecast data © <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0). Live aviation observations via <a href="https://aviationweather.gov/data/api/">AviationWeather.gov</a>; onsite gust via Skydive Stockholm. Not an operational authority — check Skyview, onsite wind and <a href="https://www.smhi.se/vader/radar-och-satellit/radar-med-blixt">SMHI radar + lightning</a>.</sub>
