@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const forecasts = await Promise.all(DROPZONES.map(fetchDropzoneForecast));
-  const generatedAt = new Date().toISOString();
+  const now = new Date();
+  const generatedAt = now.toISOString();
+  const todayISO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Stockholm",
+  }).format(now);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
@@ -23,7 +27,7 @@ export default async function Home() {
         <Freshness generatedAt={generatedAt} />
       </header>
 
-      <Dashboard forecasts={forecasts} />
+      <Dashboard forecasts={forecasts} todayISO={todayISO} />
       <Legend />
     </main>
   );

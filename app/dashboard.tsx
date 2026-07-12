@@ -76,25 +76,32 @@ const ROW_TINT: Record<HourStatus, string> = {
 
 export default function Dashboard({
   forecasts,
+  todayISO,
 }: {
   forecasts: DropzoneForecast[];
+  todayISO: string;
 }) {
-  // Day index shared across both DZs (0 = today, 1 = tomorrow).
-  const [day, setDay] = useState(0);
-  const dayLabels =
-    forecasts.find((f) => f.days.length)?.days.map((d) => d.label) ??
-    ["Today", "Tomorrow"];
+  // The first available day is not necessarily today, and the two DZs can stop
+  // at different times. Tabs come from one calendar and cards match dateISO,
+  // never the position of a day in an individual forecast array.
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const dayOptions =
+    forecasts.find((f) => f.days.length)?.days.map((d) => ({
+      dateISO: d.dateISO,
+      label: d.label,
+    })) ?? [];
+  const selectedDateISO = dayOptions[selectedDayIndex]?.dateISO ?? null;
 
   return (
     <>
       <div className="mb-6 flex justify-center">
         <div className="inline-flex rounded-full bg-zinc-100 p-1 dark:bg-zinc-800/80">
-          {dayLabels.map((label, i) => (
+          {dayOptions.map(({ dateISO, label }, i) => (
             <button
-              key={label}
-              onClick={() => setDay(i)}
+              key={dateISO}
+              onClick={() => setSelectedDayIndex(i)}
               className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
-                day === i
+                selectedDayIndex === i
                   ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-white"
                   : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
               }`}
@@ -107,7 +114,12 @@ export default function Dashboard({
 
       <div className="grid gap-5 lg:grid-cols-2">
         {forecasts.map((f) => (
-          <DzCard key={f.dz.id} forecast={f} day={day} />
+          <DzCard
+            key={f.dz.id}
+            forecast={f}
+            selectedDateISO={selectedDateISO}
+            todayISO={todayISO}
+          />
         ))}
       </div>
     </>
@@ -116,14 +128,18 @@ export default function Dashboard({
 
 function DzCard({
   forecast,
-  day,
+  selectedDateISO,
+  todayISO,
 }: {
   forecast: DropzoneForecast;
-  day: number;
+  selectedDateISO: string | null;
+  todayISO: string;
 }) {
   const { dz, days, error } = forecast;
-  const d = days[day] ?? null;
-  const showLive = day === 0;
+  const d = days.find((candidate) => candidate.dateISO === selectedDateISO) ?? null;
+  // Live observations describe the wall clock, not the first forecast tab.
+  // Comparing dates prevents tomorrow from inheriting a late-evening GO NOW.
+  const showLive = d?.dateISO === todayISO;
   const verdict = d ? effectiveVerdict(d.verdict, showLive ? forecast.live : null) : "NO-GO";
   const style = VERDICT[verdict];
 

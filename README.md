@@ -58,8 +58,9 @@ Everything runs server-side, in four steps:
 3. **Score each remaining hour.** Every hour from now until closing is rated
    go / consider / no-go on the *worst* of five factors: wind, gusts, rain,
    thunder, and cloud.
-4. **Reconcile.** Live wind, visibility and aviation ceiling can only downgrade
-   today's headline. Contradictory or incomplete forecast fields never score GO.
+4. **Reconcile.** Live wind, gusts and aviation ceiling can only downgrade
+   today's headline. Future-day tabs never show or apply current observations.
+   Contradictory or incomplete forecast fields never score GO.
    The remaining hours become one outlook per dropzone, plus the best window.
 
 | Verdict | What it means |
