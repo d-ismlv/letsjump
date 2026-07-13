@@ -62,6 +62,7 @@ const VIOLENT_SHOWER = 82; // violent rain shower — a genuine stopper
 type Sample = {
   windMs: number;
   gustMs: number;
+  gustSpreadComparable?: boolean;
   precipMmH: number;
   precipProb: number;
   weatherCode: number;
@@ -127,7 +128,9 @@ export function rateHour(s: Sample): {
       key: "gust",
       status: worst(
         gustSpeedStatus(s.gustMs),
-        gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
+        s.gustSpreadComparable === false
+          ? "go"
+          : gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
       ),
     },
     { key: thunder ? "thunder" : "rain", status: rainStatus },
@@ -211,15 +214,29 @@ const LIMITER_LABEL: Record<Exclude<Limiter, null>, string> = {
 
 // Roll up a day's jumping-window hours into one verdict + every usable window.
 export function rateDay(
-  hours: ForecastHour[],
+  allHours: ForecastHour[],
   meta: { dateISO: string; label: string; close: number },
 ): DayForecast {
+  if (!allHours.length) {
+    return {
+      ...meta,
+      hours: allHours,
+      verdict: "NO-GO",
+      summary: "No forecast data for the jumping window.",
+      windows: [],
+      likelyEarlyStopFrom: null,
+    };
+  }
+
+  // Elapsed hours remain in the table for context but cannot influence the
+  // remaining-day verdict, windows, or summary.
+  const hours = allHours.filter((hour) => !hour.isPast);
   if (!hours.length) {
     return {
       ...meta,
-      hours,
+      hours: allHours,
       verdict: "NO-GO",
-      summary: "No forecast data for the jumping window.",
+      summary: "Today's jumping window has ended.",
       windows: [],
       likelyEarlyStopFrom: null,
     };
@@ -235,10 +252,6 @@ export function rateDay(
   // over-confident — the point forecast can't see cells drifting over from nearby.
   const unsettled =
     stormy || hours.some((h) => h.precipProb >= LIMITS.probUnsettled);
-  const nearWindHold = hours.some(
-    (h) => h.windMs >= LIMITS.windConsider || h.gustMs >= LIMITS.gustConsider,
-  );
-
   let verdict: Verdict;
   if (bestGo.len >= 2) verdict = "GO";
   else if (goHours >= 1 || bestOk.len >= 3) verdict = "CONSIDER";
@@ -246,7 +259,7 @@ export function rateDay(
 
   // Never headline a full GO on an unsettled day. A clear morning still shows its
   // green best-window chip so the "go early" signal isn't lost.
-  if ((unsettled || nearWindHold) && verdict === "GO") verdict = "CONSIDER";
+  if (unsettled && verdict === "GO") verdict = "CONSIDER";
 
   // Evening-only clearance: if nothing is jumpable until the last few hours
   // before this DZ's close, don't headline GO — by then people have left or the
@@ -286,7 +299,7 @@ export function rateDay(
 
   return {
     ...meta,
-    hours,
+    hours: allHours,
     verdict,
     summary: summarise(
       hours,

@@ -92,13 +92,31 @@ export async function fetchDropzoneForecast(
     const hour = Number(iso.slice(11, 13));
     if (
       hour < JUMP_FROM ||
-      hour > closeFor(date) ||
-      (date === todayISO && hour < currentHour)
+      hour > closeFor(date)
     ) continue;
 
+    const isPast = date === todayISO && hour < currentHour;
+    const isCurrent = date === todayISO && hour === currentHour;
+    const windMs = isCurrent && live.windMs != null
+      ? live.windMs
+      : h.wind_speed_10m[i] ?? 0;
+    // Gryttjom exposes an onsite 30-minute maximum gust. Prefer it over both
+    // the regional METAR and the model for the current hour.
+    const gustMs = isCurrent
+      ? live.onsiteGustMs ?? live.gustMs ?? h.wind_gusts_10m[i] ?? 0
+      : h.wind_gusts_10m[i] ?? 0;
+    const windSource = isCurrent && live.windMs != null
+      ? "metar" as const
+      : "forecast" as const;
+    const gustSource = isCurrent && live.onsiteGustMs != null
+      ? "onsite" as const
+      : isCurrent && live.gustMs != null
+        ? "metar" as const
+        : "forecast" as const;
+
     const values = [
-      h.wind_speed_10m[i],
-      h.wind_gusts_10m[i],
+      windMs,
+      gustMs,
       h.precipitation[i],
       h.precipitation_probability?.[i],
       h.weather_code?.[i],
@@ -111,8 +129,11 @@ export async function fetchDropzoneForecast(
     const dataComplete = values.every(Number.isFinite);
 
     const sample = {
-      windMs: h.wind_speed_10m[i] ?? 0,
-      gustMs: h.wind_gusts_10m[i] ?? 0,
+      windMs,
+      gustMs,
+      // A spread only means something when mean and gust came from the same
+      // instrument/source. Do not compare onsite gust with a remote METAR mean.
+      gustSpreadComparable: windSource === gustSource,
       precipMmH: h.precipitation[i] ?? 0,
       precipProb: h.precipitation_probability?.[i] ?? 0,
       weatherCode: h.weather_code?.[i] ?? 0,
@@ -130,14 +151,20 @@ export async function fetchDropzoneForecast(
     const row: ForecastHour = {
       time: iso,
       hour,
+      isPast,
+      isCurrent,
       temperatureC: liveTemperature ??
         (Number.isFinite(h.temperature_2m[i]) ? h.temperature_2m[i] : null),
       temperatureSource: liveTemperature != null
         ? (live.temperatureSource ?? "metar")
         : "forecast",
       windMs: sample.windMs,
+      windSource,
       gustMs: sample.gustMs,
-      bearingDeg: h.wind_direction_10m[i] ?? 0,
+      gustSource,
+      bearingDeg: isCurrent && live.bearingDeg != null
+        ? live.bearingDeg
+        : h.wind_direction_10m[i] ?? 0,
       precipMmH: sample.precipMmH,
       precipProb: sample.precipProb,
       weatherCode: sample.weatherCode,

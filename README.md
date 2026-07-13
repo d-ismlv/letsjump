@@ -20,8 +20,9 @@
 observations with a **GO / CONSIDER / NO-GO** forecast for **FK Aros** (Västerås) and **Skydive
 Stockholm** (Gryttjom), for today and tomorrow. Wind, gusts, rain, cloud and
 thunder, scored hour-by-hour over the 09:00–21:00 window.
-Hourly temperature is shown from Open-Meteo, with the current hour replaced by
-an available onsite or METAR observation; temperature does not affect the verdict.
+The current hour prefers available live observations for wind, gust, direction,
+and temperature; later hours remain Open-Meteo forecasts. Temperature does not
+affect the verdict.
 
 Decision aid only — always confirm actual ops and conditions at the DZ.
 
@@ -57,13 +58,15 @@ Everything runs server-side, in four steps:
 2. **Fetch the outlook.** Pull the hourly forecast from
    [Open-Meteo](https://open-meteo.com) for each airfield's coordinates, using
    MET Nordic where available and best-match fields for the rest.
-3. **Score each remaining hour.** Every hour from now until closing is rated
+3. **Score each hour.** Every hour from opening until closing is rated
    go / consider / no-go on the *worst* of five factors: wind, gusts, rain,
-   thunder, and cloud.
+   thunder, and cloud. Elapsed hours stay visible but muted and are excluded from
+   the remaining-day outlook.
 4. **Reconcile.** Live wind, gusts and aviation ceiling can only downgrade
    today's headline. Future-day tabs never show or apply current observations.
    Contradictory or incomplete forecast fields never score GO.
-   The remaining hours become one outlook per dropzone. Every usable window is
+   The remaining hours become one outlook per dropzone. A short recoverable wind
+   hold does not downgrade an otherwise strong day. Every usable window is
    retained (for example `09–13 · 16–20`); terminal wind starting at least three
    hours before closing is flagged as a likely early stop.
 

@@ -84,9 +84,10 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const windMs = finite(metar.wspd) ? knotsToMs(metar.wspd) : null;
   const metarGustMs = finite(metar.wgst) ? knotsToMs(metar.wgst) : null;
   const metarTemperatureC = finite(metar.temp) ? metar.temp : null;
-  const gustComesFromOnsite =
-    onsiteGustMs != null && (metarGustMs == null || onsiteGustMs >= metarGustMs);
-  const gustMs = maxNullable(metarGustMs, onsiteGustMs);
+  // The DZ instrument is authoritative for current surface gusts. The remote
+  // METAR is only a fallback, even when its regional reading is higher.
+  const gustComesFromOnsite = onsiteGustMs != null;
+  const gustMs = onsiteGustMs ?? metarGustMs;
   const cloudBaseFt = lowestCloudBase(metar.clouds);
   const ceilingFt = lowestCeiling(metar.clouds);
   let status: HourStatus = "go";
@@ -210,12 +211,6 @@ function lowestCloudBase(clouds: MetarCloud[] | undefined): number | null {
     .filter((c) => finite(c.base))
     .map((c) => c.base as number);
   return bases.length ? Math.min(...bases) : null;
-}
-
-function maxNullable(a: number | null, b: number | null): number | null {
-  if (a == null) return b;
-  if (b == null) return a;
-  return Math.max(a, b);
 }
 
 function finite(value: unknown): value is number {

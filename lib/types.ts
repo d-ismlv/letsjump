@@ -19,10 +19,14 @@ export type Dropzone = {
 export type ForecastHour = {
   time: string; // ISO local (Europe/Stockholm)
   hour: number; // 0-23, local
+  isPast: boolean; // elapsed today; displayed but excluded from the outlook
+  isCurrent: boolean;
   temperatureC: number | null;
   temperatureSource: "forecast" | "metar" | "onsite";
   windMs: number;
+  windSource: "forecast" | "metar" | "onsite";
   gustMs: number;
+  gustSource: "forecast" | "metar" | "onsite";
   bearingDeg: number; // direction wind comes FROM
   precipMmH: number;
   precipProb: number; // 0-100

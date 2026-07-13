@@ -285,7 +285,9 @@ function LiveConditionsPanel({
           : "Onsite temperature only"
       : live.dataState === "unavailable"
         ? `${live.station} unavailable`
-        : `${live.station} · ${live.stationDistanceKm} km away`;
+        : live.onsiteGustMs != null
+          ? `DZ gust + ${live.station} · ${live.stationDistanceKm} km`
+          : `${live.station} · ${live.stationDistanceKm} km away`;
   const conditionNote =
     live.reasons.length > 0
       ? live.reasons.join(" · ")
@@ -382,7 +384,13 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
             return (
               <tr
                 key={h.time}
-                className={`border-t border-zinc-100 dark:border-zinc-800/60 ${ROW_TINT[h.status]}`}
+                data-past={h.isPast ? "true" : undefined}
+                title={h.isPast
+                  ? "Past hour"
+                  : h.isCurrent
+                    ? "Current hour; live observations are preferred where available"
+                    : undefined}
+                className={`border-t border-zinc-100 transition-opacity dark:border-zinc-800/60 ${h.isPast ? "opacity-40 grayscale" : ROW_TINT[h.status]}`}
               >
                 <td className="py-2 pl-1 text-left font-medium tabular-nums">
                   {pad(h.hour)}
@@ -406,19 +414,27 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                 >
                   {h.temperatureC == null ? "·" : `${h.temperatureC.toFixed(1)}°`}
                 </td>
-                <td className="py-2 text-center tabular-nums">
+                <td
+                  className="py-2 text-center tabular-nums"
+                  title={windSourceLabel(h.windSource)}
+                >
                   <span className="inline-flex items-center justify-center gap-1">
                     <WindArrow
                       bearingDeg={h.bearingDeg}
                       className="h-3.5 w-3.5 text-zinc-400 max-[375px]:h-3 max-[375px]:w-3"
                     />
-                    <span className="font-medium">{h.windMs.toFixed(0)}</span>
+                    <span className="font-medium">
+                      {h.windMs.toFixed(h.windSource === "forecast" ? 0 : 1)}
+                    </span>
                     <span className="w-6 text-left text-[11px] text-zinc-400 max-[375px]:w-5 max-[375px]:text-[10px]">
                       {compass(h.bearingDeg)}
                     </span>
                   </span>
                 </td>
-                <td className="py-2 text-center tabular-nums text-zinc-500">
+                <td
+                  className="py-2 text-center tabular-nums text-zinc-500"
+                  title={windSourceLabel(h.gustSource)}
+                >
                   {h.gustMs.toFixed(1)}
                 </td>
                 <td className="py-2 text-center">
@@ -443,6 +459,12 @@ function temperatureSourceLabel(source: ForecastHour["temperatureSource"]): stri
   if (source === "onsite") return "Current onsite Skyview observation";
   if (source === "metar") return "Current METAR observation";
   return "Open-Meteo 2 m forecast";
+}
+
+function windSourceLabel(source: ForecastHour["windSource"]): string {
+  if (source === "onsite") return "Current onsite DZ observation";
+  if (source === "metar") return "Current METAR observation";
+  return "Open-Meteo forecast";
 }
 
 // Rain cell leads with the signal that actually caught the storms: probability
@@ -499,6 +521,15 @@ function chanceLabel(
 const REFRESH_MS = 15 * 60 * 1000;
 const localDay = (t: number) =>
   new Date(t).toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
+const localHour = (t: number) =>
+  new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).format(t);
 
 export function Freshness({ generatedAt }: { generatedAt: string }) {
   const router = useRouter();
@@ -512,7 +543,11 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
   }, []);
 
   useEffect(() => {
-    if (now - gen >= REFRESH_MS || localDay(now) !== localDay(gen)) {
+    if (
+      now - gen >= REFRESH_MS ||
+      localDay(now) !== localDay(gen) ||
+      localHour(now) !== localHour(gen)
+    ) {
       router.refresh();
     }
   }, [now, gen, router]);

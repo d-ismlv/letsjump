@@ -122,9 +122,10 @@ export default function HowItWorksPage() {
             <Verdict dot="bg-rose-500" title="NO-GO">No usable run or no forecast window</Verdict>
           </div>
           <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">
-            A GO candidate is downgraded to CONSIDER by wind or gust ≥10 m/s,
-            thunder, rain probability ≥{LIMITS.probUnsettled}%, a window that only
-            starts in the final {LATE_MARGIN} hours, or terminal wind with no recovery.
+            A GO candidate is downgraded to CONSIDER by thunder, rain probability
+            ≥{LIMITS.probUnsettled}%, a window that only starts in the final
+            {LATE_MARGIN} hours, or terminal wind with no recovery. A short midday
+            wind hold can split the windows without downgrading the whole day.
           </p>
         </section>
 
@@ -132,7 +133,8 @@ export default function HowItWorksPage() {
           <h2 className="text-xl font-semibold">5. Live and informational data</h2>
           <div className="mt-4 divide-y divide-zinc-200 rounded-xl border border-zinc-200 text-sm dark:divide-zinc-800 dark:border-zinc-800 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <Info title="Live observations">
-              Apply to today only. They never alter tomorrow&apos;s forecast.
+              Preferred for the current hour and today&apos;s headline. They never
+              alter tomorrow&apos;s forecast.
             </Info>
             <Info title="Cloud base">
               Lowest METAR layer; click feet to show metres. Ceiling uses BKN/OVC/VV.
