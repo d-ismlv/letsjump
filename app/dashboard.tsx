@@ -39,6 +39,11 @@ const VERDICT: Record<
   },
 };
 
+const ENDED_STYLE = {
+  badge: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  ring: "ring-zinc-500/10",
+};
+
 const STATUS_DOT: Record<HourStatus, string> = {
   go: "bg-emerald-500",
   consider: "bg-amber-400",
@@ -140,8 +145,11 @@ function DzCard({
   // Live observations describe the wall clock, not the first forecast tab.
   // Comparing dates prevents tomorrow from inheriting a late-evening GO NOW.
   const showLive = d?.dateISO === todayISO;
+  const dayEnded = Boolean(
+    showLive && d && d.hours.length > 0 && d.hours.every((hour) => hour.isPast),
+  );
   const verdict = d ? effectiveVerdict(d.verdict, showLive ? forecast.live : null) : "NO-GO";
-  const style = VERDICT[verdict];
+  const style = dayEnded ? ENDED_STYLE : VERDICT[verdict];
 
   return (
     <section
@@ -161,15 +169,15 @@ function DzCard({
           <span
             className={`rounded-lg px-3 py-1.5 text-sm font-bold tracking-wide ${style.badge}`}
           >
-            {d ? verdict : "NO DATA"}
+            {dayEnded ? "DAY ENDED" : d ? verdict : "NO DATA"}
           </span>
-          {/* Height is reserved so NO-GO/error never shifts the table. */}
+          {/* Height is reserved so ended/NO-GO/error never shifts the table. */}
           <div className="flex h-5 items-center">
-            {error ? (
+            {!dayEnded && error ? (
               <span className="text-xs text-rose-600" title={error}>
                 forecast unavailable
               </span>
-            ) : d && d.windows.length > 0 ? (
+            ) : !dayEnded && d && d.windows.length > 0 ? (
               <span
                 className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
                   d.likelyEarlyStopFrom == null && d.windows[0].quality === "clear"
@@ -185,7 +193,7 @@ function DzCard({
         </div>
       </div>
 
-      {showLive && (
+      {showLive && !dayEnded && (
         <LiveConditionsPanel live={forecast.live} />
       )}
 
