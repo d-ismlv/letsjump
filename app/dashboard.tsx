@@ -297,34 +297,33 @@ function LiveConditionsPanel({
     : showCloudBaseMetres
       ? `${Math.round((live.cloudBaseFt * 0.3048) / 10) * 10} m`
       : `${live.cloudBaseFt.toLocaleString("en-US")} ft`;
-  const clearSky = ["CLR", "SKC", "NSC", "NCD"].includes(live.cloudCover ?? "");
 
   return (
     <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[96px]">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className={`rounded-md px-2 py-1 text-[11px] font-bold tracking-wide ${style.badge}`}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide ${style.badge}`}>
             {style.label}
           </span>
-          <span className="text-xs text-zinc-500">
+          <span className="truncate text-xs text-zinc-500" title={sourceLabel}>
             {sourceLabel}
           </span>
         </div>
-        <span className="text-[11px] text-zinc-400">
+        <span className="whitespace-nowrap text-[11px] text-zinc-400">
           {retrievalLabel}
         </span>
       </div>
 
-      <div className="mt-2 grid grid-cols-3 gap-x-2 text-xs tabular-nums">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
         {live.windMs != null && (
-          <span className="col-start-1 whitespace-nowrap"><span className="text-zinc-400">Mean wind</span> {live.windMs.toFixed(1)} m/s</span>
+          <span className="whitespace-nowrap"><span className="text-zinc-400">Mean wind</span> {live.windMs.toFixed(1)} m/s</span>
         )}
         {live.gustMs != null && (
-          <span className="col-start-2 whitespace-nowrap"><span className="text-zinc-400">Max gust</span> {live.gustMs.toFixed(1)} m/s</span>
+          <span className="whitespace-nowrap"><span className="text-zinc-400">Max gust</span> {live.gustMs.toFixed(1)} m/s</span>
         )}
-        <span className="col-start-3 whitespace-nowrap">
-          <span className="text-zinc-400">Cloud base</span>{" "}
-          {cloudBaseLabel ? (
+        {cloudBaseLabel && (
+          <span className="whitespace-nowrap">
+            <span className="text-zinc-400">Cloud base</span>{" "}
             <button
               type="button"
               onClick={() => setShowCloudBaseMetres((value) => !value)}
@@ -334,10 +333,8 @@ function LiveConditionsPanel({
             >
               {cloudBaseLabel}
             </button>
-          ) : (
-            <span className="text-zinc-400">{clearSky ? "clear" : "not reported"}</span>
-          )}
-        </span>
+          </span>
+        )}
       </div>
 
       <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 lg:truncate" title={conditionNote}>
@@ -350,27 +347,27 @@ function LiveConditionsPanel({
 function HourTable({ hours }: { hours: ForecastHour[] }) {
   return (
     <div className="overflow-x-auto px-2 pb-2">
-      <table className="w-full min-w-[325px] table-fixed text-sm">
+      <table className="w-full min-w-[270px] table-fixed text-sm max-[375px]:text-[13px] min-[376px]:min-w-[325px]">
         {/* Fixed widths so columns sit in the exact same place on every day/DZ.
-            SKY has no width — it absorbs the slack, keeping the rest deterministic. */}
+            Totals are 270px on narrow phones and 325px on wider screens. */}
         <colgroup>
-          <col className="w-12" />
-          <col />
-          <col className="w-12" />
-          <col className="w-16" />
-          <col className="w-9" />
-          <col className="w-16" />
-          <col className="w-10" />
+          <col className="w-[42px] min-[376px]:w-[50px]" />
+          <col className="w-[38px] min-[376px]:w-[46px]" />
+          <col className="w-[42px] min-[376px]:w-[50px]" />
+          <col className="w-[50px] min-[376px]:w-[58px]" />
+          <col className="w-[37px] min-[376px]:w-[45px]" />
+          <col className="w-[39px] min-[376px]:w-[47px]" />
+          <col className="w-[22px] min-[376px]:w-[29px]" />
         </colgroup>
         <thead>
-          <tr className="text-[11px] uppercase tracking-wide text-zinc-400">
-            <th className="py-2 pl-3 text-left font-medium">Time</th>
-            <th className="py-2 pl-4 text-left font-medium">Sky</th>
+          <tr className="text-[11px] uppercase tracking-wide text-zinc-400 max-[375px]:text-[10px]">
+            <th className="py-2 pl-1 text-left font-medium">Time</th>
+            <th className="py-2 text-center font-medium">Sky</th>
             <th className="py-2 text-center font-medium">Temp</th>
             <th className="py-2 text-center font-medium">Wind</th>
             <th className="py-2 text-center font-medium">Gust</th>
             <th className="py-2 text-center font-medium">Rain</th>
-            <th className="py-2 pr-3 text-center font-medium">Go</th>
+            <th className="py-2 text-center font-medium">Go</th>
           </tr>
         </thead>
         <tbody>
@@ -387,13 +384,13 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                 key={h.time}
                 className={`border-t border-zinc-100 dark:border-zinc-800/60 ${ROW_TINT[h.status]}`}
               >
-                <td className="py-2 pl-3 text-left font-medium tabular-nums">
+                <td className="py-2 pl-1 text-left font-medium tabular-nums">
                   {pad(h.hour)}
                 </td>
-                <td className="py-2 pl-4">
+                <td className="py-2">
                   {/* Fixed-width row so every icon lands on the same vertical line. */}
-                  <div className="flex w-16 items-center gap-2">
-                    <Sky className="h-5 w-5 shrink-0" />
+                  <div className="flex items-center justify-center gap-1 max-[375px]:gap-0.5">
+                    <Sky className="h-5 w-5 shrink-0 max-[375px]:h-[18px] max-[375px]:w-[18px]" />
                     <span
                       className={`text-xs tabular-nums ${h.cloudUncertain ? "font-medium text-zinc-500 dark:text-zinc-300" : "text-zinc-400"}`}
                       title={h.cloudUncertain ? "Cloud sources disagree; treating as uncertain" : undefined}
@@ -413,10 +410,10 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                   <span className="inline-flex items-center justify-center gap-1">
                     <WindArrow
                       bearingDeg={h.bearingDeg}
-                      className="h-3.5 w-3.5 text-zinc-400"
+                      className="h-3.5 w-3.5 text-zinc-400 max-[375px]:h-3 max-[375px]:w-3"
                     />
                     <span className="font-medium">{h.windMs.toFixed(0)}</span>
-                    <span className="w-6 text-left text-[11px] text-zinc-400">
+                    <span className="w-6 text-left text-[11px] text-zinc-400 max-[375px]:w-5 max-[375px]:text-[10px]">
                       {compass(h.bearingDeg)}
                     </span>
                   </span>
@@ -424,10 +421,10 @@ function HourTable({ hours }: { hours: ForecastHour[] }) {
                 <td className="py-2 text-center tabular-nums text-zinc-500">
                   {h.gustMs.toFixed(1)}
                 </td>
-                <td className="py-2 pl-1 pr-2 text-center">
+                <td className="py-2 text-center">
                   <RainCell h={h} />
                 </td>
-                <td className="py-2 pr-2 text-center">
+                <td className="py-2 text-center">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_DOT[h.status]}`}
                     title={dotTitle(h)}
