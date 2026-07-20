@@ -47,9 +47,9 @@ export default function HowItWorksPage() {
         <section>
           <h2 className="text-xl font-semibold">1. Wind limits</h2>
           <p className="mb-4 mt-2 text-sm text-zinc-500">
-            Wind speed and gust spread are separate checks. For example, 4 m/s
-            wind with a 10 m/s gust has an acceptable spread, but the absolute
-            gust still makes the hour CONSIDER.
+            Mean ground wind and gust spread are separate checks. Maximum gust is
+            shown as data, but is not treated as a second mean-wind reading. For
+            example, 4 m/s wind with a 10 m/s gust has a 6 m/s spread.
           </p>
           <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
             <table className="w-full min-w-[560px] text-sm">
@@ -63,7 +63,6 @@ export default function HowItWorksPage() {
               </thead>
               <tbody className="divide-y divide-zinc-200 text-center dark:divide-zinc-800">
                 <RuleRow label="Mean wind" go={`< ${LIMITS.windConsider}`} consider={`= ${LIMITS.windConsider}`} nogo={`> ${LIMITS.windNoGoAbove} m/s`} />
-                <RuleRow label="Max gust" go={`< ${LIMITS.gustConsider}`} consider={`= ${LIMITS.gustConsider}`} nogo={`> ${LIMITS.gustNoGoAbove} m/s`} />
                 <RuleRow label="Gust − wind" go={`< ${LIMITS.gustSpreadConsider}`} consider={`${LIMITS.gustSpreadConsider}–${LIMITS.gustSpreadNoGo}`} nogo={`> ${LIMITS.gustSpreadNoGo} m/s`} />
               </tbody>
             </table>
@@ -123,9 +122,10 @@ export default function HowItWorksPage() {
           </div>
           <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">
             A GO candidate is downgraded to CONSIDER by thunder, rain probability
-            ≥{LIMITS.probUnsettled}%, a window that only starts in the final
-            {LATE_MARGIN} hours, or terminal wind with no recovery. A short midday
-            wind hold can split the windows without downgrading the whole day.
+            ≥{LIMITS.probUnsettled}%, a future window that only starts in the final
+            {LATE_MARGIN} hours, or terminal wind with no recovery. An already-active
+            clear window is not penalised for being late. A short midday wind hold
+            can split the windows without downgrading the whole day.
           </p>
         </section>
 

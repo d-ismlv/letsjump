@@ -62,8 +62,9 @@ Everything runs server-side, in four steps:
    go / consider / no-go on the *worst* of five factors: wind, gusts, rain,
    thunder, and cloud. Elapsed hours stay visible but muted and are excluded from
    the remaining-day outlook.
-4. **Reconcile.** Live wind, gusts and aviation ceiling can only downgrade
-   today's headline. Future-day tabs never show or apply current observations.
+4. **Reconcile.** Live wind and gusts replace modeled current-hour values when
+   available, and an adverse aviation ceiling can downgrade today's headline.
+   Future-day tabs never show or apply current observations.
    Contradictory or incomplete forecast fields never score GO.
    The remaining hours become one outlook per dropzone. A short recoverable wind
    hold does not downgrade an otherwise strong day. Every usable window is
@@ -82,10 +83,11 @@ while a cell dumps rain a few kilometres away, so the engine also weighs rain
 matches how jumpers actually behave: a shower *chance* only drops a day to
 CONSIDER (you jump the holes between clouds), while thunder, steady rain, or a
 solid cloud deck are the real NO-GO. An unexplained total-cloud/low-cloud
-disagreement is marked uncertain instead of silently becoming green. Steady wind
-and gusts are scored separately from gust spread: exactly 10 m/s is CONSIDER and
-anything above 10 m/s is NO-GO, before the formal 11 m/s operational hold;
-independently, a spread below 7 m/s stays green, 7–8 m/s is CONSIDER, and above 8 m/s is NO-GO.
+disagreement is marked uncertain instead of silently becoming green. Mean wind
+and gust spread are scored separately: exactly 10 m/s mean wind is CONSIDER and
+anything above 10 m/s is NO-GO, before the formal 11 m/s operational hold.
+Maximum gust remains visible as data; a same-source spread below 7 m/s stays
+green, 7–8 m/s is CONSIDER, and above 8 m/s is NO-GO.
 The live METAR box also shows the lowest reported cloud base, toggling between
 feet and metres. All the thresholds live in `LIMITS`
 ([lib/decision.ts](lib/decision.ts)) and are still being tuned against real jump

@@ -69,7 +69,6 @@ export type LiveConditions = {
   station: string;
   stationDistanceKm: number;
   onsiteGustMs: number | null;
-  reasons: string[];
 };
 
 export type DayForecast = {

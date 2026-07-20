@@ -1,5 +1,4 @@
 import {
-  gustSpeedStatus,
   gustSpreadStatus,
   LIMITS,
   windSpeedStatus,
@@ -50,23 +49,14 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     station: dz.metarStation,
     stationDistanceKm: dz.metarDistanceKm,
     onsiteGustMs,
-    reasons: ["Live observation unavailable"],
   };
 
   if (!metar) {
     if (!hasOnsiteData) return fallback;
-    const gustStatus = onsiteGustMs == null ? "go" : gustSpeedStatus(onsiteGustMs);
     return {
       ...fallback,
-      status: worst("consider", gustStatus),
       dataState: "partial",
       observedAt: new Date().toISOString(),
-      reasons: [
-        "Aviation observation unavailable",
-        ...(gustStatus === "go"
-          ? []
-          : [gustStatus === "consider" ? "Max gust close to limit" : "Max gust over limit"]),
-      ],
     };
   }
 
@@ -77,7 +67,6 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
       ...fallback,
       dataState: hasOnsiteData ? "partial" : "stale",
       observedAt,
-      reasons: ["Live aviation observation is stale"],
     };
   }
 
@@ -91,21 +80,10 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const cloudBaseFt = lowestCloudBase(metar.clouds);
   const ceilingFt = lowestCeiling(metar.clouds);
   let status: HourStatus = "go";
-  const reasons: string[] = [];
 
   if (windMs != null) {
     const s = windSpeedStatus(windMs);
     status = worst(status, s);
-    if (s !== "go") {
-      reasons.push(s === "consider" ? "Mean wind close to limit" : "Mean wind over limit");
-    }
-  }
-  if (gustMs != null) {
-    const s = gustSpeedStatus(gustMs);
-    status = worst(status, s);
-    if (s !== "go") {
-      reasons.push(s === "consider" ? "Max gust close to limit" : "Max gust over limit");
-    }
   }
   // Only compare values measured at the same station. Gryttjom's onsite gust
   // and ESCM's mean wind are useful separately, but their difference is not a
@@ -114,15 +92,11 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     const spread = Math.max(0, metarGustMs - windMs);
     const s = gustSpreadStatus(spread);
     status = worst(status, s);
-    if (s !== "go") {
-      reasons.push(s === "consider" ? "Gust spread is unsettled" : "Gust spread is too high");
-    }
   }
 
   if (ceilingFt != null && ceilingFt <= LIMITS.ceilingConsiderFt) {
     const s: HourStatus = ceilingFt <= LIMITS.ceilingNoGoFt ? "nogo" : "consider";
     status = worst(status, contextual(dz, s));
-    reasons.push(`Low ${metar.cover ?? "cloud"} ceiling`);
   }
 
   return {
@@ -144,7 +118,6 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
     station: dz.metarStation,
     stationDistanceKm: dz.metarDistanceKm,
     onsiteGustMs,
-    reasons,
   };
 }
 

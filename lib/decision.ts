@@ -21,10 +21,8 @@ export const LIMITS = {
   // exactly 10 is caution, and anything above 10 is already NO-GO.
   windConsider: 10,
   windNoGoAbove: 10,
-  gustConsider: 10,
-  gustNoGoAbove: 10,
   formalWindHold: 11,
-  // Gust spread is scored independently from absolute wind and gust speed.
+  // Gustiness is scored by the spread over mean wind, not the peak alone.
   // Exactly 7–8 m/s = CONSIDER; anything above 8 m/s = NO-GO.
   gustSpreadConsider: 7,
   gustSpreadNoGo: 8,
@@ -126,12 +124,9 @@ export function rateHour(s: Sample): {
     { key: "wind", status: windSpeedStatus(s.windMs) },
     {
       key: "gust",
-      status: worst(
-        gustSpeedStatus(s.gustMs),
-        s.gustSpreadComparable === false
-          ? "go"
-          : gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
-      ),
+      status: s.gustSpreadComparable === false
+        ? "go"
+        : gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
     },
     { key: thunder ? "thunder" : "rain", status: rainStatus },
     {
@@ -177,14 +172,6 @@ export function windSpeedStatus(windMs: number): HourStatus {
     windMs,
     LIMITS.windConsider,
     LIMITS.windNoGoAbove,
-  );
-}
-
-export function gustSpeedStatus(gustMs: number): HourStatus {
-  return operationalSpeedStatus(
-    gustMs,
-    LIMITS.gustConsider,
-    LIMITS.gustNoGoAbove,
   );
 }
 
@@ -263,11 +250,15 @@ export function rateDay(
 
   // Evening-only clearance: if nothing is jumpable until the last few hours
   // before this DZ's close, don't headline GO — by then people have left or the
-  // day gets called for low interest.
+  // day gets called for low interest. Do not penalise a clear window that is
+  // already active in the current hour.
   const lateStart = meta.close - LATE_MARGIN;
   const firstClearRun = goRuns.find((run) => run.len >= 2);
+  const currentIsGo = hours.some((hour) => hour.isCurrent && hour.status === "go");
   const eveningOnly =
-    firstClearRun != null && hours[firstClearRun.start].hour >= lateStart;
+    !currentIsGo &&
+    firstClearRun != null &&
+    hours[firstClearRun.start].hour >= lateStart;
   if (eveningOnly && verdict === "GO") verdict = "CONSIDER";
 
   // Keep every clean run. Only fall back to marginal runs when no clean run is

@@ -143,16 +143,13 @@ function DzCard({
   const { dz, days, error } = forecast;
   const d = days.find((candidate) => candidate.dateISO === selectedDateISO) ?? null;
   // Live observations describe the wall clock, not the first forecast tab.
-  // Comparing dates prevents tomorrow from inheriting a late-evening GO NOW.
+  // Comparing dates prevents tomorrow from inheriting current observations.
   const showLive = d?.dateISO === todayISO;
   const dayEnded = Boolean(
     showLive && d && d.hours.length > 0 && d.hours.every((hour) => hour.isPast),
   );
   const verdict = d ? effectiveVerdict(d.verdict, showLive ? forecast.live : null) : "NO-GO";
   const style = dayEnded ? ENDED_STYLE : VERDICT[verdict];
-  const canGoNow = Boolean(
-    d && d.verdict !== "NO-GO" && d.hours.some((hour) => hour.isCurrent),
-  );
 
   return (
     <section
@@ -197,7 +194,7 @@ function DzCard({
       </div>
 
       {showLive && !dayEnded && (
-        <LiveConditionsPanel live={forecast.live} canGoNow={canGoNow} />
+        <LiveConditionsPanel live={forecast.live} />
       )}
 
       {d && d.hours.length > 0 && <HourTable hours={d.hours} />}
@@ -246,40 +243,12 @@ function effectiveVerdict(
   return "CONSIDER";
 }
 
-const LIVE_STYLE: Record<HourStatus, { badge: string; label: string }> = {
-  go: {
-    badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
-    label: "GO NOW",
-  },
-  consider: {
-    badge: "bg-amber-100 text-amber-900 dark:bg-amber-400/15 dark:text-amber-300",
-    label: "WATCH NOW",
-  },
-  nogo: {
-    badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
-    label: "NO-GO NOW",
-  },
-};
-
-const LIVE_OK_STYLE = {
-  badge: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  label: "LIVE OK",
-};
-
 function LiveConditionsPanel({
   live,
-  canGoNow,
 }: {
   live: LiveConditions;
-  canGoNow: boolean;
 }) {
   const [showCloudBaseMetres, setShowCloudBaseMetres] = useState(false);
-  // "GO NOW" is a recommendation, not merely a healthy observation. Outside
-  // operating hours, or when the remaining-day forecast is NO-GO, keep a good
-  // live reading informational and visually neutral.
-  const style = live.status === "go" && !canGoNow
-    ? LIVE_OK_STYLE
-    : LIVE_STYLE[live.status];
   const observed = live.observedAt
     ? new Date(live.observedAt).toLocaleTimeString("en-GB", {
         timeZone: "Europe/Stockholm",
@@ -311,12 +280,6 @@ function LiveConditionsPanel({
         : live.onsiteGustMs != null
           ? `DZ gust + ${live.station} · ${live.stationDistanceKm} km`
           : `${live.station} · ${live.stationDistanceKm} km away`;
-  const conditionNote =
-    live.reasons.length > 0
-      ? live.reasons.join(" · ")
-      : live.dataState === "fresh"
-        ? "Live values within limits"
-        : "Current measurements unavailable";
   const cloudBaseLabel = live.cloudBaseFt == null
     ? null
     : showCloudBaseMetres
@@ -324,16 +287,11 @@ function LiveConditionsPanel({
       : `${live.cloudBaseFt.toLocaleString("en-US")} ft`;
 
   return (
-    <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[96px]">
+    <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[72px]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide ${style.badge}`}>
-            {style.label}
-          </span>
-          <span className="truncate text-xs text-zinc-500" title={sourceLabel}>
-            {sourceLabel}
-          </span>
-        </div>
+        <span className="truncate text-xs text-zinc-500" title={sourceLabel}>
+          {sourceLabel}
+        </span>
         <span className="whitespace-nowrap text-[11px] text-zinc-400">
           {retrievalLabel}
         </span>
@@ -361,10 +319,6 @@ function LiveConditionsPanel({
           </span>
         )}
       </div>
-
-      <p className="mt-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 lg:truncate" title={conditionNote}>
-        {conditionNote}
-      </p>
     </div>
   );
 }
@@ -595,7 +549,7 @@ export function Legend() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
       Live observations adjust today&apos;s outlook; rows cover {pad(JUMP_FROM)}–close.
-      Missing or conflicting cloud data can&apos;t score GO. NO-GO: wind/gusts &gt; {LIMITS.windNoGoAbove} m/s,
+      Missing or conflicting cloud data can&apos;t score GO. NO-GO: wind &gt; {LIMITS.windNoGoAbove} m/s,
       gust spread &gt; {LIMITS.gustSpreadNoGo} m/s, rain &gt; {LIMITS.rainMax} mm/h,
       thunder, or solid low/mid cloud. Showers alone mean CONSIDER.
     </p>
