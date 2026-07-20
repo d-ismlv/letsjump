@@ -287,7 +287,7 @@ function LiveConditionsPanel({
       : `${live.cloudBaseFt.toLocaleString("en-US")} ft`;
 
   return (
-    <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/60 lg:h-[72px]">
+    <div className="mx-3 mb-2 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900/60">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
         <span className="truncate text-xs text-zinc-500" title={sourceLabel}>
           {sourceLabel}
@@ -297,7 +297,7 @@ function LiveConditionsPanel({
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
         {live.windMs != null && (
           <span className="whitespace-nowrap"><span className="text-zinc-400">Mean wind</span> {live.windMs.toFixed(1)} m/s</span>
         )}
