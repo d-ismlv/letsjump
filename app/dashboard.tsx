@@ -150,6 +150,9 @@ function DzCard({
   );
   const verdict = d ? effectiveVerdict(d.verdict, showLive ? forecast.live : null) : "NO-GO";
   const style = dayEnded ? ENDED_STYLE : VERDICT[verdict];
+  const canGoNow = Boolean(
+    d && d.verdict !== "NO-GO" && d.hours.some((hour) => hour.isCurrent),
+  );
 
   return (
     <section
@@ -194,7 +197,7 @@ function DzCard({
       </div>
 
       {showLive && !dayEnded && (
-        <LiveConditionsPanel live={forecast.live} />
+        <LiveConditionsPanel live={forecast.live} canGoNow={canGoNow} />
       )}
 
       {d && d.hours.length > 0 && <HourTable hours={d.hours} />}
@@ -258,13 +261,25 @@ const LIVE_STYLE: Record<HourStatus, { badge: string; label: string }> = {
   },
 };
 
+const LIVE_OK_STYLE = {
+  badge: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  label: "LIVE OK",
+};
+
 function LiveConditionsPanel({
   live,
+  canGoNow,
 }: {
   live: LiveConditions;
+  canGoNow: boolean;
 }) {
   const [showCloudBaseMetres, setShowCloudBaseMetres] = useState(false);
-  const style = LIVE_STYLE[live.status];
+  // "GO NOW" is a recommendation, not merely a healthy observation. Outside
+  // operating hours, or when the remaining-day forecast is NO-GO, keep a good
+  // live reading informational and visually neutral.
+  const style = live.status === "go" && !canGoNow
+    ? LIVE_OK_STYLE
+    : LIVE_STYLE[live.status];
   const observed = live.observedAt
     ? new Date(live.observedAt).toLocaleTimeString("en-GB", {
         timeZone: "Europe/Stockholm",
@@ -579,13 +594,10 @@ export function Freshness({ generatedAt }: { generatedAt: string }) {
 export function Legend() {
   return (
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
-      Live aviation observations temper today&apos;s outlook; hourly rows are the
-      remaining forecast from {pad(JUMP_FROM)} to closing. Conflicting or missing
-      cloud data never scores GO. NO-GO needs wind &gt; {LIMITS.windNoGoAbove} m/s,
-      gust &gt; {LIMITS.gustNoGoAbove} m/s, gust spread &gt; {LIMITS.gustSpreadNoGo} m/s,
-      steady rain &gt; {LIMITS.rainMax} mm/h,
-      thunder (⚡), or solid low/mid cloud. A shower chance only dials it down to
-      CONSIDER — scattered cells leave holes to jump.
+      Live observations adjust today&apos;s outlook; rows cover {pad(JUMP_FROM)}–close.
+      Missing or conflicting cloud data can&apos;t score GO. NO-GO: wind/gusts &gt; {LIMITS.windNoGoAbove} m/s,
+      gust spread &gt; {LIMITS.gustSpreadNoGo} m/s, rain &gt; {LIMITS.rainMax} mm/h,
+      thunder, or solid low/mid cloud. Showers alone mean CONSIDER.
     </p>
   );
 }
