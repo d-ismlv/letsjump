@@ -47,9 +47,9 @@ export default function HowItWorksPage() {
         <section>
           <h2 className="text-xl font-semibold">1. Wind limits</h2>
           <p className="mb-4 mt-2 text-sm text-zinc-500">
-            Mean ground wind and gust spread are separate checks. Maximum gust is
-            shown as data, but is not treated as a second mean-wind reading. For
-            example, 4 m/s wind with a 10 m/s gust has a 6 m/s spread.
+            Mean ground wind, maximum gust, and gust spread are separate checks.
+            The worst of the three decides the hour. For example, 4 m/s wind with
+            a 10 m/s gust has a 6 m/s spread and is NO-GO.
           </p>
           <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
             <table className="w-full min-w-[560px] text-sm">
@@ -63,12 +63,15 @@ export default function HowItWorksPage() {
               </thead>
               <tbody className="divide-y divide-zinc-200 text-center dark:divide-zinc-800">
                 <RuleRow label="Mean wind" go={`< ${LIMITS.windConsider}`} consider={`= ${LIMITS.windConsider}`} nogo={`> ${LIMITS.windNoGoAbove} m/s`} />
-                <RuleRow label="Gust − wind" go={`< ${LIMITS.gustSpreadConsider}`} consider={`${LIMITS.gustSpreadConsider}–${LIMITS.gustSpreadNoGo}`} nogo={`> ${LIMITS.gustSpreadNoGo} m/s`} />
+                <RuleRow label="Maximum gust" go={`< ${LIMITS.gustConsider}`} consider={`${LIMITS.gustConsider}–${LIMITS.gustNoGoAbove}`} nogo={`> ${LIMITS.gustNoGoAbove} m/s`} />
+                <RuleRow label="Gust − wind" go={`< ${LIMITS.gustSpreadConsider}`} consider={`${LIMITS.gustSpreadConsider}–<${LIMITS.gustSpreadNoGoAt}`} nogo={`≥ ${LIMITS.gustSpreadNoGoAt} m/s`} />
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-xs text-zinc-500">
-            The formal hold is {LIMITS.formalWindHold} m/s; this app turns red above 10.
+            The legal ceiling is {LIMITS.legalWindLimit} m/s. This app turns red
+            sooner: above {LIMITS.windNoGoAbove} m/s mean wind or above{" "}
+            {LIMITS.gustNoGoAbove} m/s gust.
           </p>
         </section>
 

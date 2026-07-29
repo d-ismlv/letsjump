@@ -65,6 +65,9 @@ function dotTitle(h: ForecastHour): string {
   if (!h.limiter) return `${verdict}: within limits`;
   if (h.limiter === "gust") {
     const spread = Math.max(0, h.gustMs - h.windMs);
+    if (h.gustMs > LIMITS.gustNoGoAbove) {
+      return `${verdict}: peak gust ${h.gustMs.toFixed(1)} m/s is too high`;
+    }
     if (spread >= LIMITS.gustSpreadConsider) {
       return `${verdict}: gust spread ${spread.toFixed(1)} m/s ${h.status === "nogo" ? "is too high" : "is unsettled"}`;
     }
@@ -550,7 +553,8 @@ export function Legend() {
     <p className="mt-6 text-center text-xs leading-relaxed text-zinc-400">
       Live observations adjust today&apos;s outlook; rows cover {pad(JUMP_FROM)}–close.
       Missing or conflicting cloud data can&apos;t score GO. NO-GO: wind &gt; {LIMITS.windNoGoAbove} m/s,
-      gust spread &gt; {LIMITS.gustSpreadNoGo} m/s, rain &gt; {LIMITS.rainMax} mm/h,
+      gust &gt; {LIMITS.gustNoGoAbove} m/s, gust spread ≥ {LIMITS.gustSpreadNoGoAt} m/s,
+      rain &gt; {LIMITS.rainMax} mm/h,
       thunder, or solid low/mid cloud. Showers alone mean CONSIDER.
     </p>
   );

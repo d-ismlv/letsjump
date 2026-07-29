@@ -17,15 +17,19 @@ export const LATE_MARGIN = 3;
 // Thresholds for a licensed (B/C/D) sport jumper. Tune here.
 // Wind/gust in m/s, rain in mm/h, cloud in % cover.
 export const LIMITS = {
-  // 11 m/s is the formal operational hold. The app is deliberately stricter:
+  // 12 m/s is the legal ceiling. The app is deliberately stricter on mean wind:
   // exactly 10 is caution, and anything above 10 is already NO-GO.
   windConsider: 10,
   windNoGoAbove: 10,
-  formalWindHold: 11,
-  // Gustiness is scored by the spread over mean wind, not the peak alone.
-  // Exactly 7–8 m/s = CONSIDER; anything above 8 m/s = NO-GO.
-  gustSpreadConsider: 7,
-  gustSpreadNoGo: 8,
+  legalWindLimit: 12,
+  // Peak gust is an independent hard-safety check, even when its source differs
+  // from the mean-wind source. Anything above 11.5 m/s is NO-GO.
+  gustConsider: 10,
+  gustNoGoAbove: 11.5,
+  // Rapid variation is unsafe before the peak itself reaches the ceiling.
+  // The 5.5 m/s boundary deliberately covers displayed cases such as 5 → 10.5.
+  gustSpreadConsider: 5,
+  gustSpreadNoGoAt: 5.5,
   // Rain AMOUNT (mm/h). Scattered showers you can jump around ("holes"); it's
   // steady rain sitting over the DZ that actually stops the day.
   rainGood: 0.2, // dry enough
@@ -124,9 +128,12 @@ export function rateHour(s: Sample): {
     { key: "wind", status: windSpeedStatus(s.windMs) },
     {
       key: "gust",
-      status: s.gustSpreadComparable === false
-        ? "go"
-        : gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
+      status: worst(
+        gustSpeedStatus(s.gustMs),
+        s.gustSpreadComparable === false
+          ? "go"
+          : gustSpreadStatus(Math.max(0, s.gustMs - s.windMs)),
+      ),
     },
     { key: thunder ? "thunder" : "rain", status: rainStatus },
     {
@@ -162,9 +169,17 @@ function band(value: number, good: number, max: number): HourStatus {
 }
 
 export function gustSpreadStatus(spread: number): HourStatus {
-  if (spread > LIMITS.gustSpreadNoGo) return "nogo";
+  if (spread >= LIMITS.gustSpreadNoGoAt) return "nogo";
   if (spread >= LIMITS.gustSpreadConsider) return "consider";
   return "go";
+}
+
+export function gustSpeedStatus(gustMs: number): HourStatus {
+  return operationalSpeedStatus(
+    gustMs,
+    LIMITS.gustConsider,
+    LIMITS.gustNoGoAbove,
+  );
 }
 
 export function windSpeedStatus(windMs: number): HourStatus {

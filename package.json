@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "node --no-warnings --test --experimental-strip-types tests/*.test.mjs",
     "start": "next start"
   },
   "dependencies": {

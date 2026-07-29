@@ -1,4 +1,5 @@
 import {
+  gustSpeedStatus,
   gustSpreadStatus,
   LIMITS,
   windSpeedStatus,
@@ -35,7 +36,9 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
   const hasOnsiteData = onsiteGustMs != null || onsiteTemperatureC != null;
 
   const fallback: LiveConditions = {
-    status: "consider",
+    status: onsiteGustMs == null
+      ? "consider"
+      : worst("consider", gustSpeedStatus(onsiteGustMs)),
     dataState: hasOnsiteData ? "partial" : "unavailable",
     observedAt: null,
     windMs: null,
@@ -83,6 +86,10 @@ export async function fetchLiveConditions(dz: Dropzone): Promise<LiveConditions>
 
   if (windMs != null) {
     const s = windSpeedStatus(windMs);
+    status = worst(status, s);
+  }
+  if (gustMs != null) {
+    const s = gustSpeedStatus(gustMs);
     status = worst(status, s);
   }
   // Only compare values measured at the same station. Gryttjom's onsite gust
